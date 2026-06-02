@@ -1,0 +1,83 @@
+### Variables
+@host = http://localhost:8080
+@phoneA = +33600000001
+@phoneB = +33600000002
+
+### 1. Register user A
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "olfa",
+  "password": "test123",
+  "phoneNumber": "{{phoneA}}",
+  "email": "olfa@test.com"
+}
+
+### 2. Register user B
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "test123",
+  "phoneNumber": "{{phoneB}}",
+  "email": "alice@test.com"
+}
+
+### 3. Login as user A (stores token in {{token}})
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneA}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("token", response.body);
+%}
+
+### 4. Send friend request A -> B (expects 201)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "{{phoneB}}"
+}
+
+### 5. Same request again (expects 409 - already pending)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "{{phoneB}}"
+}
+
+### 6. Send friend request to self (expects 409)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "{{phoneA}}"
+}
+
+### 7. Send to non-existing phone (expects 404)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "+33699999999"
+}
+
+### 8. Without token (expects 401)
+POST {{host}}/api/friendships
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneB}}"
+}

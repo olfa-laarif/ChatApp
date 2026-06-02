@@ -1,0 +1,74 @@
+package olfa.laarif.chatapp.service.impl;
+
+import olfa.laarif.chatapp.dto.FriendshipRequest;
+import olfa.laarif.chatapp.dto.FriendshipResponse;
+import olfa.laarif.chatapp.dto.UserResponse;
+import olfa.laarif.chatapp.entity.FriendshipEntity;
+import olfa.laarif.chatapp.entity.UserEntity;
+import olfa.laarif.chatapp.enums.FriendshipStatus;
+import olfa.laarif.chatapp.exception.FriendshipAlreadyExistsException;
+import olfa.laarif.chatapp.exception.UserNotFoundException;
+import olfa.laarif.chatapp.repository.FriendshipRepository;
+import olfa.laarif.chatapp.repository.UserRepository;
+import olfa.laarif.chatapp.service.FriendshipService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class FriendshipServiceImpl implements FriendshipService {
+
+    private final UserRepository userRepository;
+    private final FriendshipRepository friendshipRepository;
+
+    public FriendshipServiceImpl(UserRepository userRepository,
+                                 FriendshipRepository friendshipRepository) {
+        this.userRepository = userRepository;
+        this.friendshipRepository = friendshipRepository;
+    }
+
+    @Override
+    @Transactional
+    public FriendshipResponse sendFriendRequest(String requesterPhoneNumber, FriendshipRequest request) {
+        UserEntity requester = userRepository.findByPhoneNumber(requesterPhoneNumber)
+                .orElseThrow(() -> new UserNotFoundException(
+                        "Authenticated user not found: " + requesterPhoneNumber));
+
+        UserEntity receiver = userRepository.findByPhoneNumber(request.phoneNumber())
+                .orElseThrow(() -> new UserNotFoundException(
+                        "No user found with phone number: " + request.phoneNumber()));
+
+        if (requester.getId().equals(receiver.getId())) {
+            throw new FriendshipAlreadyExistsException("You cannot send a friend request to yourself");
+        }
+
+        if (friendshipRepository.existsByRequesterAndReceiverAndStatus(
+                requester, receiver, FriendshipStatus.PENDING)) {
+            throw new FriendshipAlreadyExistsException(
+                    "A pending friend request already exists for this user");
+        }
+
+        FriendshipEntity friendship = FriendshipEntity.builder()
+                .requester(requester)
+                .receiver(receiver)
+                .status(FriendshipStatus.PENDING)
+                .build();
+
+        FriendshipEntity saved = friendshipRepository.save(friendship);
+
+        return toResponse(saved);
+    }
+
+    private FriendshipResponse toResponse(FriendshipEntity entity) {
+        return new FriendshipResponse(
+                entity.getId(),
+                toUserResponse(entity.getRequester()),
+                toUserResponse(entity.getReceiver()),
+                entity.getStatus(),
+                entity.getCreatedAt()
+        );
+    }
+
+    private UserResponse toUserResponse(UserEntity user) {
+        return new UserResponse(user.getId(), user.getUsername(), user.getPhoneNumber());
+    }
+}
