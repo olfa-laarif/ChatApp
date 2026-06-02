@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
@@ -29,7 +28,7 @@ public class UserServiceImpl implements UserService {
         UserEntity user = new UserEntity();
         user.setUsername(registrationDto.getUsername());
         user.setPhoneNumber(registrationDto.getPhoneNumber());
-        user.setClerkId(passwordEncoder.encode(registrationDto.getPassword()));
+        user.setPassword(passwordEncoder.encode(registrationDto.getPassword()));
         user.setEmail(registrationDto.getEmail());
 
         return userRepository.save(user);
@@ -39,7 +38,7 @@ public class UserServiceImpl implements UserService {
         Optional<UserEntity> userOptional = userRepository.findByPhoneNumber(loginDto.getPhoneNumber());
         if (userOptional.isPresent()) {
             UserEntity user = userOptional.get();
-           if (passwordEncoder.matches(loginDto.getPassword(), user.getClerkId())) {
+           if (passwordEncoder.matches(loginDto.getPassword(), user.getPassword())) {
                String token = jwtUtil.generateToken(user.getPhoneNumber());
                return Optional.of(token);
             }
