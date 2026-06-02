@@ -6,10 +6,13 @@ import olfa.laarif.chatapp.service.FriendshipService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/friendships")
@@ -28,5 +31,12 @@ public class FriendshipController {
         String requesterPhoneNumber = authentication.getName();
         FriendshipResponse response = friendshipService.sendFriendRequest(requesterPhoneNumber, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/received")
+    public ResponseEntity<List<FriendshipResponse>> listReceivedPendingRequests(
+            Authentication authentication) {
+        String receiverPhoneNumber = authentication.getName();
+        return ResponseEntity.ok(friendshipService.listReceivedPendingRequests(receiverPhoneNumber));
     }
 }

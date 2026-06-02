@@ -14,6 +14,8 @@ import olfa.laarif.chatapp.service.FriendshipService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class FriendshipServiceImpl implements FriendshipService {
 
@@ -56,6 +58,20 @@ public class FriendshipServiceImpl implements FriendshipService {
         FriendshipEntity saved = friendshipRepository.save(friendship);
 
         return toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FriendshipResponse> listReceivedPendingRequests(String receiverPhoneNumber) {
+        UserEntity receiver = userRepository.findByPhoneNumber(receiverPhoneNumber)
+                .orElseThrow(() -> new UserNotFoundException(
+                        "Authenticated user not found: " + receiverPhoneNumber));
+
+        return friendshipRepository
+                .findByReceiverAndStatusOrderByCreatedAtDesc(receiver, FriendshipStatus.PENDING)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     private FriendshipResponse toResponse(FriendshipEntity entity) {

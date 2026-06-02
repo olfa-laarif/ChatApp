@@ -47,6 +47,23 @@ Authorization: Bearer {{token}}
   "phoneNumber": "{{phoneB}}"
 }
 
+### 4b. Login as user B then list received requests (expects 200 with 1 PENDING)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneB}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenB", response.body);
+%}
+
+### 4c. GET /api/friendships/received as user B
+GET {{host}}/api/friendships/received
+Authorization: Bearer {{tokenB}}
+
 ### 5. Same request again (expects 409 - already pending)
 POST {{host}}/api/friendships
 Content-Type: application/json
