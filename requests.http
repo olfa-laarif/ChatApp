@@ -60,8 +60,30 @@ Content-Type: application/json
     client.global.set("tokenB", response.body);
 %}
 
-### 4c. GET /api/friendships/received as user B
+### 4c. GET /api/friendships/received as user B (capture first id in {{friendshipId}})
 GET {{host}}/api/friendships/received
+Authorization: Bearer {{tokenB}}
+
+> {%
+    if (response.body && response.body.length > 0) {
+        client.global.set("friendshipId", response.body[0].id);
+    }
+%}
+
+### 4d. Accept the friend request as user B (expects 200, status ACCEPTED)
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{tokenB}}
+
+### 4e. Accept again (expects 409 - already processed)
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{tokenB}}
+
+### 4f. Try to accept as user A (the requester, not the receiver) (expects 404)
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{token}}
+
+### 4g. Try to accept a non-existing friendship (expects 404)
+POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/accept
 Authorization: Bearer {{tokenB}}
 
 ### 5. Same request again (expects 409 - already pending)

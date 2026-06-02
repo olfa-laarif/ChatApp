@@ -10,4 +10,6 @@ public interface FriendshipService {
     FriendshipResponse sendFriendRequest(String requesterPhoneNumber, FriendshipRequest request);
 
     List<FriendshipResponse> listReceivedPendingRequests(String receiverPhoneNumber);
+
+    FriendshipResponse acceptFriendRequest(String receiverPhoneNumber, String friendshipId);
 }

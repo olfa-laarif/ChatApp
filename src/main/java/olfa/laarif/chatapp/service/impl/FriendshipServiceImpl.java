@@ -7,6 +7,7 @@ import olfa.laarif.chatapp.entity.FriendshipEntity;
 import olfa.laarif.chatapp.entity.UserEntity;
 import olfa.laarif.chatapp.enums.FriendshipStatus;
 import olfa.laarif.chatapp.exception.FriendshipAlreadyExistsException;
+import olfa.laarif.chatapp.exception.FriendshipNotFoundException;
 import olfa.laarif.chatapp.exception.UserNotFoundException;
 import olfa.laarif.chatapp.repository.FriendshipRepository;
 import olfa.laarif.chatapp.repository.UserRepository;
@@ -58,6 +59,31 @@ public class FriendshipServiceImpl implements FriendshipService {
         FriendshipEntity saved = friendshipRepository.save(friendship);
 
         return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public FriendshipResponse acceptFriendRequest(String receiverPhoneNumber, String friendshipId) {
+        UserEntity receiver = userRepository.findByPhoneNumber(receiverPhoneNumber)
+                .orElseThrow(() -> new UserNotFoundException(
+                        "Authenticated user not found: " + receiverPhoneNumber));
+
+        FriendshipEntity friendship = friendshipRepository.findById(friendshipId)
+                .orElseThrow(() -> new FriendshipNotFoundException(
+                        "Friend request not found: " + friendshipId));
+
+        if (!friendship.getReceiver().getId().equals(receiver.getId())) {
+            throw new FriendshipNotFoundException(
+                    "Friend request not found: " + friendshipId);
+        }
+
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new FriendshipAlreadyExistsException(
+                    "This friend request was already processed");
+        }
+
+        friendship.setStatus(FriendshipStatus.ACCEPTED);
+        return toResponse(friendshipRepository.save(friendship));
     }
 
     @Override

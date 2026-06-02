@@ -16,6 +16,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(FriendshipNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleFriendshipNotFound(FriendshipNotFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(FriendshipAlreadyExistsException.class)
     public ResponseEntity<Map<String, Object>> handleFriendshipAlreadyExists(FriendshipAlreadyExistsException ex) {
         return build(HttpStatus.CONFLICT, ex.getMessage());
