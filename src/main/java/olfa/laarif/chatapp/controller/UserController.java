@@ -1,29 +1,44 @@
 package olfa.laarif.chatapp.controller;
 
+import olfa.laarif.chatapp.controller.request.UserLoginDto;
+import olfa.laarif.chatapp.controller.request.UserRegistrationDto;
+import olfa.laarif.chatapp.entity.UserEntity;
+import olfa.laarif.chatapp.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
+
 @RestController
-@RequestMapping("/private")
+@RequestMapping("/users")
 public class UserController {
 
-    @GetMapping()
-    public String hello(@AuthenticationPrincipal Jwt jwt) {
+    @Autowired
+    private UserService userService;
 
-        return "Hello " + jwt.getClaim("email");
+
+    @PostMapping("/register")
+    public ResponseEntity<UserEntity> registerUser(@RequestBody UserRegistrationDto registrationDto) {
+        Optional<UserEntity> existingUser = userService.findByPhoneNumber(registrationDto.getPhoneNumber());
+        if (existingUser.isPresent()) {
+            return ResponseEntity.badRequest().body(null);
+        } else {
+            UserEntity newUser = userService.register(registrationDto);
+            return ResponseEntity.ok(newUser);
+        }
     }
 
-
+    @PostMapping("/login")
+    public ResponseEntity<String> loginUser(@RequestBody UserLoginDto loginDto) {
+        Optional<String> token = userService.login(loginDto);
+        return token.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(401).body("Invalid credentials"));
+    }
 }
+
+
 

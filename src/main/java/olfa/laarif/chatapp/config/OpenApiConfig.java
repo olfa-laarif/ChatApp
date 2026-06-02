@@ -18,7 +18,7 @@ public class OpenApiConfig {
                 .info(new Info().title("SpringShop API")
                         .description("Spring shop sample application")
                         .version("v0.0.1")
-                        .contact(new Contact().name("John Doe").email("john.doe@example.com"))
+                        .contact(new Contact().name("Bschool Java").email("john.doe@example.com"))
                         .license(new License().name("Apache 2.0").url("http://springdoc.org")))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new io.swagger.v3.oas.models.Components()

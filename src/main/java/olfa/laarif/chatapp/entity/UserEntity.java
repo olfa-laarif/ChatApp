@@ -5,6 +5,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
@@ -12,6 +15,9 @@ import java.time.Instant;
 import java.util.Objects;
 
 @Entity
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(
         name = "users",
         indexes = @Index(name = "idx_users_phone_number", columnList = "phone_number")
@@ -39,66 +45,8 @@ public class UserEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    public UserEntity() {
-    }
 
-    public UserEntity(String id,
-                      String clerkId,
-                      String phoneNumber,
-                      String email,
-                      String username,
-                      Instant createdAt) {
-        this.id = id;
-        this.clerkId = clerkId;
-        this.phoneNumber = phoneNumber;
-        this.email = email;
-        this.username = username;
-        this.createdAt = createdAt;
-    }
 
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getClerkId() {
-        return clerkId;
-    }
-
-    public void setClerkId(String clerkId) {
-        this.clerkId = clerkId;
-    }
-
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
-
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
 
 
     @Override

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChatAppApplication {
 
     public static void main(String[] args) {
-
         SpringApplication.run(ChatAppApplication.class, args);
     }
     @GetMapping("/hello")
