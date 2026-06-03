@@ -151,20 +151,8 @@ POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/decline
 Authorization: Bearer {{tokenC}}
 
 
-### 4r. A sends a friend request to D (expects 201, capture id in {{friendshipIdD}})
-POST {{host}}/api/friendships
-Content-Type: application/json
-Authorization: Bearer {{token}}
 
-{
-  "phoneNumber": "{{phoneD}}"
-}
 
-> {%
-    if (response.body && response.body.id) {
-        client.global.set("friendshipIdD", response.body.id);
-    }
-%}
 
 
 
@@ -219,6 +207,45 @@ Content-Type: application/json
   "email": "dan@test.com"
 }
 
+### 3. Login as user A (stores token in {{token}})
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneA}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("token", response.body);
+%}
+
+### 4r. A sends a friend request to D (expects 201, capture id in {{friendshipIdD}})
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "{{phoneD}}"
+}
+
+> {%
+    if (response.body && response.body.id) {
+        client.global.set("friendshipIdD", response.body.id);
+    }
+%}
+
+
+### 4t. Cancel the friend request as user A (expects 200, status CANCELLED)
+POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
+Authorization: Bearer {{token}}
+
+### 4u. Cancel again (expects 409 - already processed)
+POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
+Authorization: Bearer {{token}}
+
+
+
 ### 4q. Login as user D (stores tokenD)
 POST {{host}}/users/login
 Content-Type: application/json
@@ -236,11 +263,3 @@ Content-Type: application/json
 ### 4s. Try to cancel as user D (the receiver, not the requester) (expects 404)
 POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
 Authorization: Bearer {{tokenD}}
-
-### 4t. Cancel the friend request as user A (expects 200, status CANCELLED)
-POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
-Authorization: Bearer {{token}}
-
-### 4u. Cancel again (expects 409 - already processed)
-POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
-Authorization: Bearer {{token}}
