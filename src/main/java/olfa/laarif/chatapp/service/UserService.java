@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface UserService  {
     UserEntity register(UserRegistrationDto registrationDto);
 
+    UserEntity registerAdmin(UserRegistrationDto registrationDto);
+
     Optional<String> login(UserLoginDto loginDto);
 
     Optional<UserEntity> findByPhoneNumber(String username);

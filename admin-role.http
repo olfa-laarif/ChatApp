@@ -1,0 +1,109 @@
+### Variables
+@host = http://localhost:8080
+@phoneAdmin = +33677777777
+@phoneNormal = +33688888888
+
+### ─────────────────────────────────────────
+### STORY ADMIN-ROLE — Tests du système de rôles
+### ─────────────────────────────────────────
+###
+### - Register classique : crée un compte role = USER.
+### - Endpoint bootstrap POST /users/register/admin : crée le PREMIER admin.
+###   - Refuse (409) si un admin existe déjà.
+### - Migration Flyway V2 ajoute la colonne `role` aux DB existantes.
+### ─────────────────────────────────────────
+
+
+### 1. Register d'un utilisateur normal (rôle USER par défaut, attend 200)
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "NormalUser",
+  "password": "test123",
+  "phoneNumber": "{{phoneNormal}}",
+  "email": "normal@test.com"
+}
+
+
+### 2. Bootstrap : création du premier admin (attend 201)
+POST {{host}}/users/register/admin
+Content-Type: application/json
+
+{
+  "username": "SuperAdmin",
+  "password": "admin123",
+  "phoneNumber": "{{phoneAdmin}}",
+  "email": "admin@chatapp.com"
+}
+
+
+### 3. Tentative de créer un 2e admin (attend 409 - un admin existe déjà)
+POST {{host}}/users/register/admin
+Content-Type: application/json
+
+{
+  "username": "SecondAdmin",
+  "password": "admin123",
+  "phoneNumber": "+33699999999",
+  "email": "admin2@chatapp.com"
+}
+
+
+### 4. Tentative de créer un admin avec un numéro déjà utilisé (attend 400)
+POST {{host}}/users/register/admin
+Content-Type: application/json
+
+{
+  "username": "DuplicateAdmin",
+  "password": "admin123",
+  "phoneNumber": "{{phoneNormal}}",
+  "email": "dup@chatapp.com"
+}
+
+
+### 5. Login admin (attend 200 + token)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneAdmin}}",
+  "password": "admin123"
+}
+
+> {%
+    client.global.set("tokenAdmin", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+
+### 6. Login utilisateur normal (attend 200 + token)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneNormal}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenUser", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+
+### ─────────────────────────────────────────
+### Notes pour la story suivante (admin-logs-endpoint)
+### ─────────────────────────────────────────
+###
+### Une fois les endpoints /api/admin/** créés et protégés par hasRole(ADMIN) :
+###
+### # Admin → 200 OK
+### GET {{host}}/api/admin/logs/messages
+### Authorization: Bearer {{tokenAdmin}}
+###
+### # Utilisateur normal → 403 Forbidden
+### GET {{host}}/api/admin/logs/messages
+### Authorization: Bearer {{tokenUser}}
+###
+### # Sans token → 401 Unauthorized
+### GET {{host}}/api/admin/logs/messages
+### ─────────────────────────────────────────

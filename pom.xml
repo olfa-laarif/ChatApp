@@ -71,6 +71,17 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- FLYWAY -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
         <!-- SWAGGER -->
         <dependency>
             <groupId>org.springdoc</groupId>
