@@ -56,4 +56,12 @@ public class FriendshipController {
         String receiverPhoneNumber = authentication.getName();
         return ResponseEntity.ok(friendshipService.declineFriendRequest(receiverPhoneNumber, friendshipId));
     }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<FriendshipResponse> cancelFriendRequest(
+            Authentication authentication,
+            @PathVariable("id") String friendshipId) {
+        String requesterPhoneNumber = authentication.getName();
+        return ResponseEntity.ok(friendshipService.cancelFriendRequest(requesterPhoneNumber, friendshipId));
+    }
 }

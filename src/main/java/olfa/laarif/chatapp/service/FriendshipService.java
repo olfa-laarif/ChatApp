@@ -14,4 +14,6 @@ public interface FriendshipService {
     FriendshipResponse acceptFriendRequest(String receiverPhoneNumber, String friendshipId);
 
     FriendshipResponse declineFriendRequest(String receiverPhoneNumber, String friendshipId);
+
+    FriendshipResponse cancelFriendRequest(String requesterPhoneNumber, String friendshipId);
 }
