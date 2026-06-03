@@ -92,28 +92,6 @@ class MessageEntityListenerTest {
         assertThat(log.getUserId()).isEqualTo(usr1.getId());
         assertThat(log.getCreatedAt()).isNotNull();
     }
-    @Test
-    void shouldCreateLogWithSentActionWhenMessageIsSaved() {
-
-
-        message.setContent("Hello World!");
-        message.setSenderId(usr1.getId());
-        message.setDeleted(false);
-        message.setConversationId(conversation.getId());
-
-        // WHEN - On sauvegarde le message en BDD (déclenche @PostPersist)
-        message = messageRepository.save(message); // saveAndFlush force Hibernate à exécuter le SQL immédiatement
-
-        // THEN - On vérifie qu'un log d'action SENT a été créé
-        List<MessageLogEntity> logs = messageLogRepository.findAll();
-
-        assertThat(logs).hasSize(1);
-        MessageLogEntity log = logs.get(0);
-        assertThat(log.getMessageId()).isEqualTo(message.getId());
-        assertThat(log.getUserId()).isEqualTo(usr1.getId());
-        // assertThat(log.getAction()).isEqualTo(MessageAction.SENT.name());
-        assertThat(log.getCreatedAt()).isNotNull();
-    }
 
 /*    @Test
     void shouldCreateLogWithEditedActionWhenMessageContentIsUpdated() {
