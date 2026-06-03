@@ -43,6 +43,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, errors);
     }
 
+    // Business-rule violations thrown as IllegalArgumentException map to 400.
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", Instant.now().toString(),

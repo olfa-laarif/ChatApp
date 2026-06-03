@@ -35,6 +35,11 @@ public class ConversationEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "conversationType", columnDefinition = "ENUM('DIRECT', 'GROUP')", nullable = false)
     private ConversationType conversationType = ConversationType.DIRECT;
+
+    // Only set for GROUP conversations.
+    @Column(name = "name", length = 100)
+    private String name;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
