@@ -3,6 +3,7 @@
 @phoneA = +33600000001
 @phoneB = +33600000002
 @phoneC = +33600000003
+@phoneD = +33600000004
 
 ### 1. Register user A
 POST {{host}}/users/register
@@ -149,6 +150,16 @@ Authorization: Bearer {{token}}
 POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/decline
 Authorization: Bearer {{tokenC}}
 
+
+
+
+
+
+
+### 4v. Try to cancel a non-existing friendship (expects 404)
+POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/cancel
+Authorization: Bearer {{token}}
+
 ### 5. Same request again (expects 409 - already pending)
 POST {{host}}/api/friendships
 Content-Type: application/json
@@ -183,3 +194,72 @@ Content-Type: application/json
 {
   "phoneNumber": "{{phoneB}}"
 }
+
+
+### 4p. Register user D (for the cancel test)
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "dan",
+  "password": "test123",
+  "phoneNumber": "{{phoneD}}",
+  "email": "dan@test.com"
+}
+
+### 3. Login as user A (stores token in {{token}})
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneA}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("token", response.body);
+%}
+
+### 4r. A sends a friend request to D (expects 201, capture id in {{friendshipIdD}})
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "{{phoneD}}"
+}
+
+> {%
+    if (response.body && response.body.id) {
+        client.global.set("friendshipIdD", response.body.id);
+    }
+%}
+
+
+### 4t. Cancel the friend request as user A (expects 200, status CANCELLED)
+POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
+Authorization: Bearer {{token}}
+
+### 4u. Cancel again (expects 409 - already processed)
+POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
+Authorization: Bearer {{token}}
+
+
+
+### 4q. Login as user D (stores tokenD)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneD}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenD", response.body);
+%}
+
+
+### 4s. Try to cancel as user D (the receiver, not the requester) (expects 404)
+POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
+Authorization: Bearer {{tokenD}}
