@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+import static java.time.Instant.now;
+
 @Component
 @RequiredArgsConstructor
 public class MessageEventListener {
@@ -20,10 +22,10 @@ public class MessageEventListener {
     @Transactional // Ouvre une nouvelle transaction propre pour le log
     public void handleMessageAction(MessageActionEvent event) {
         MessageLogEntity log = MessageLogEntity.builder()
-                .messageId(event.getMessage().getId())
-                .userId(event.getMessage().getSender().getId())
-                .action(event.getAction().name())
-                .createdAt(LocalDateTime.now())
+                .message(event.getMessage())
+                .user(event.getMessage().getSender())
+                .action(event.getAction())
+                .createdAt(now())
                 .build();
 
         messageLogRepository.save(log);

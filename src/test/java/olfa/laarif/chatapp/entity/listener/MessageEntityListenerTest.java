@@ -89,8 +89,8 @@ class MessageEntityListenerTest {
 
         assertThat(logs).hasSize(1);
         MessageLogEntity log = logs.get(0);
-        assertThat(log.getMessageId()).isEqualTo(message.getId());
-        assertThat(log.getUserId()).isEqualTo(usr1.getId());
+        assertThat(log.getMessage().getId()).isEqualTo(message.getId());
+        assertThat(log.getUser().getId()).isEqualTo(usr1.getId());
         assertThat(log.getCreatedAt()).isNotNull();
     }
 
