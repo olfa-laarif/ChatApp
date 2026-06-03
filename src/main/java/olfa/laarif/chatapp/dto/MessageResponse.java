@@ -8,5 +8,6 @@ public record MessageResponse(
         UserResponse sender,
         String content,
         boolean isDeleted,
+        AttachmentResponse attachment,
         Instant createdAt
 ) {}

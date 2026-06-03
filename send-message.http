@@ -182,3 +182,102 @@ Content-Type: application/json
   "receiverPhoneNumber": "{{phoneB}}",
   "content": "Pas de token"
 }
+
+### 18. Lucas envoie un message avec Texte ET Image (sans boundary manuel)
+POST {{host}}/api/messages
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data
+
+receiverPhoneNumber={{phoneB}};
+content=Voici la photo des vacances !;
+file=@photo.png; type=image/png
+
+### 19. Camille envoie un document PDF SEUL sans texte
+POST {{host}}/api/messages
+Authorization: Bearer {{tokenB}}
+Content-Type: multipart/form-data
+
+receiverPhoneNumber={{phoneA}};
+file=@document.pdf; type=application/pdf
+
+> {%
+    // On capture l'ID de ce message contenant la pièce jointe pour le test de suppression plus bas
+    client.global.set("messageWithAttachmentId", response.body.id);
+%}
+
+### 20. Lucas tente d'envoyer un format interdit (ex: un fichier .txt - expects 400)
+POST {{host}}/api/messages
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data
+
+receiverPhoneNumber={{phoneB}};
+file=@notes.txt; type=text/plain
+
+### 21. Lucas envoie un message MULTIPART vide (Sans texte ET sans fichier - expects 400)
+POST {{host}}/api/messages
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data
+
+receiverPhoneNumber={{phoneB}}
+
+### ─────────────────────────────────────────
+### CHATAPP-13 : MODIFICATION DE MESSAGE
+### ─────────────────────────────────────────
+
+### 22. Lucas récupère d'abord l'historique pour attraper un ID de message
+GET {{host}}/api/messages/conversation/{{conversationId}}
+Authorization: Bearer {{token}}
+
+> {%
+    if (response.body && response.body.length > 0) {
+        client.global.set("messageIdToEdit", response.body[0].id);
+        client.global.set("camilleMessageId", response.body[1].id);
+    }
+%}
+
+### 23. Lucas modifie son propre message (expects 200)
+PUT {{host}}/api/messages/{{messageIdToEdit}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Salut Camille ! (Modifié pour corriger une faute)"
+}
+
+### 24. Lucas tente de modifier le message de Camille (expects 400)
+PUT {{host}}/api/messages/{{camilleMessageId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Je pirate ton message !"
+}
+
+### 25. Lucas tente de mettre un contenu vide (expects 400)
+PUT {{host}}/api/messages/{{messageIdToEdit}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": ""
+}
+
+### ─────────────────────────────────────────
+### CHATAPP-13 : SUPPRESSION (AJOUTS MANQUANTS)
+### ─────────────────────────────────────────
+
+### 26. Lucas supprime complètement son propre message (expects 204)
+DELETE {{host}}/api/messages/{{messageIdToEdit}}
+Authorization: Bearer {{token}}
+
+### 27. Camille tente de supprimer le message de Lucas (sécurité - expects 400)
+DELETE {{host}}/api/messages/{{messageIdToEdit}}
+Authorization: Bearer {{tokenB}}
+
+### 28. Camille retire l'attachment de son message PDF mais garde le texte (expects 204)
+DELETE {{host}}/api/messages/{{messageWithAttachmentId}}/attachment
+Authorization: Bearer {{tokenB}}
+
+### 29. Lucas tente de supprimer l'attachment de Camille (sécurité - expects 400)
+DELETE {{host}}/api/messages/{{messageWithAttachmentId}}/attachment
+Authorization: Bearer {{token}}
