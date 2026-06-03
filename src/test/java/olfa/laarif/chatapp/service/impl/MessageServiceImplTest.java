@@ -2,6 +2,7 @@ package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.dto.MessageResponse;
 import olfa.laarif.chatapp.entity.ConversationEntity;
+import olfa.laarif.chatapp.entity.ConversationMemberEntity;
 import olfa.laarif.chatapp.entity.MessageEntity;
 import olfa.laarif.chatapp.entity.UserEntity;
 import olfa.laarif.chatapp.repository.ConversationRepository;
@@ -15,6 +16,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -62,8 +64,20 @@ class MessageServiceImplTest {
 
         // GIVEN - 2. Création de la conversation
         ConversationEntity conversation = new ConversationEntity();
-        conversation.setUser1(usr1);
-        conversation.setUser2(usr2);
+        ConversationMemberEntity member1 = ConversationMemberEntity.builder()
+                .user(usr1)
+                .conversation(conversation) // Lie le membre à la conversation
+                .joinedAt(Instant.now())
+                .build();
+
+        ConversationMemberEntity member2 = ConversationMemberEntity.builder()
+                .user(usr2)
+                .conversation(conversation) // Lie le membre à la conversation
+                .joinedAt(Instant.now())
+                .build();
+
+// 4. Ajout de la liste des membres à la conversation
+        conversation.setMembers(List.of(member1, member2));
         conversation.setCreatedAt(now());
         conversation.setLastMessageAt(now());
         conversation=conversationRepository.save(conversation);

@@ -2,19 +2,17 @@ package olfa.laarif.chatapp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import olfa.laarif.chatapp.enums.ConversationType;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
+import java.util.List;
 
 @Entity
 @Table(
-        name = "conversations",
-        uniqueConstraints = @UniqueConstraint(
-                name = "one_conversation_per_pair",
-                columnNames = {"user1_id", "user2_id"}
-        )
+        name = "conversations"
 )
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
@@ -26,14 +24,17 @@ public class ConversationEntity {
     @Column(length = 36, updatable = false, nullable = false)
     private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user1_id", nullable = false)
-    private UserEntity user1;
+    // Relationship to link conversation with its participants
+    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ConversationMemberEntity> members;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user2_id", nullable = false)
-    private UserEntity user2;
+    // Relationship to link conversation with its messages
+    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MessageEntity> messages;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "conversationType", columnDefinition = "ENUM('DIRECT', 'GROUP')", nullable = false)
+    private ConversationType conversationType = ConversationType.DIRECT;
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
