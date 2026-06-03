@@ -2,6 +2,7 @@ package olfa.laarif.chatapp.service;
 
 import olfa.laarif.chatapp.dto.notification.FriendRequestAcceptedNotification;
 import olfa.laarif.chatapp.dto.notification.FriendRequestNotification;
+import olfa.laarif.chatapp.dto.notification.FileDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.MessageDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.MessageEditedNotification;
 import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
@@ -55,6 +56,11 @@ public class SseServiceImpl implements SseService {
     @Override
     public void notifyMessageEdited(String recipientId, MessageEditedNotification payload) {
         sendEvent(recipientId, "MESSAGE_EDITED", payload, null);
+    }
+
+    @Override
+    public void notifyFileDeleted(String recipientId, FileDeletedNotification payload) {
+        sendEvent(recipientId, "FILE_DELETED", payload, null);
     }
 
     <T> void sendEvent(String userId, String eventType, T payload, Consumer<UserEntity> emailFallback) {

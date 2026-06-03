@@ -1,5 +1,6 @@
 package olfa.laarif.chatapp.service;
 
+import olfa.laarif.chatapp.dto.notification.FileDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.FriendRequestAcceptedNotification;
 import olfa.laarif.chatapp.dto.notification.FriendRequestNotification;
 import olfa.laarif.chatapp.dto.notification.MessageDeletedNotification;
@@ -17,4 +18,6 @@ public interface SseService {
     void notifyMessageDeleted(String recipientId, MessageDeletedNotification payload);
 
     void notifyMessageEdited(String recipientId, MessageEditedNotification payload);
+
+    void notifyFileDeleted(String recipientId, FileDeletedNotification payload);
 }
