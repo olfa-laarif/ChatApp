@@ -1,4 +1,4 @@
-package olfa.laarif.chatapp.service;
+package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.dto.MessageResponse;
 import olfa.laarif.chatapp.dto.SendMessageRequest;
@@ -19,10 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 @Service
 public class MessageServiceImpl implements MessageService {
+
 
     private final UserRepository userRepository;
     private final FriendshipRepository friendshipRepository;
