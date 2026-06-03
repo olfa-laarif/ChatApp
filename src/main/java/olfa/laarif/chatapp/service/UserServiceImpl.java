@@ -5,6 +5,7 @@ import olfa.laarif.chatapp.config.JwtUtil;
 import olfa.laarif.chatapp.controller.request.UserLoginDto;
 import olfa.laarif.chatapp.controller.request.UserRegistrationDto;
 import olfa.laarif.chatapp.entity.UserEntity;
+import olfa.laarif.chatapp.enums.Role;
 import olfa.laarif.chatapp.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -30,8 +31,26 @@ public class UserServiceImpl implements UserService {
         user.setPhoneNumber(registrationDto.getPhoneNumber());
         user.setPassword(passwordEncoder.encode(registrationDto.getPassword()));
         user.setEmail(registrationDto.getEmail());
+        user.setRole(Role.USER);
 
         return userRepository.save(user);
+    }
+
+    // Bootstrap : crée le premier compte ADMIN. Refuse si un admin existe déjà,
+    // pour empêcher quiconque de s'auto-promouvoir une fois le système amorcé.
+    public UserEntity registerAdmin(UserRegistrationDto registrationDto) {
+        if (userRepository.existsByRole(Role.ADMIN)) {
+            throw new IllegalStateException("An admin already exists. Promotion must go through an admin-only endpoint.");
+        }
+
+        UserEntity admin = new UserEntity();
+        admin.setUsername(registrationDto.getUsername());
+        admin.setPhoneNumber(registrationDto.getPhoneNumber());
+        admin.setPassword(passwordEncoder.encode(registrationDto.getPassword()));
+        admin.setEmail(registrationDto.getEmail());
+        admin.setRole(Role.ADMIN);
+
+        return userRepository.save(admin);
     }
 
     public Optional<String> login(UserLoginDto loginDto) {
