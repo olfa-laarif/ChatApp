@@ -73,6 +73,31 @@ public class FriendshipServiceImpl implements FriendshipService {
         return respondToFriendRequest(receiverPhoneNumber, friendshipId, FriendshipStatus.DECLINED);
     }
 
+    @Override
+    @Transactional
+    public FriendshipResponse cancelFriendRequest(String requesterPhoneNumber, String friendshipId) {
+        UserEntity requester = userRepository.findByPhoneNumber(requesterPhoneNumber)
+                .orElseThrow(() -> new UserNotFoundException(
+                        "Authenticated user not found: " + requesterPhoneNumber));
+
+        FriendshipEntity friendship = friendshipRepository.findById(friendshipId)
+                .orElseThrow(() -> new FriendshipNotFoundException(
+                        "Friend request not found: " + friendshipId));
+
+        if (!friendship.getRequester().getId().equals(requester.getId())) {
+            throw new FriendshipNotFoundException(
+                    "Friend request not found: " + friendshipId);
+        }
+
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new FriendshipAlreadyExistsException(
+                    "This friend request was already processed");
+        }
+
+        friendship.setStatus(FriendshipStatus.CANCELLED);
+        return toResponse(friendshipRepository.save(friendship));
+    }
+
     private FriendshipResponse respondToFriendRequest(String receiverPhoneNumber,
                                                      String friendshipId,
                                                      FriendshipStatus newStatus) {

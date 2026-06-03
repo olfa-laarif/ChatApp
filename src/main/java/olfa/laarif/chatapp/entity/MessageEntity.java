@@ -1,61 +1,47 @@
 package olfa.laarif.chatapp.entity;
 
-
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-@Data
 @Entity
-@Table(name = "messages")
+@Table(
+        name = "messages",
+        indexes = @Index(name = "idx_messages_conversation_id", columnList = "conversation_id, created_at DESC")
+)
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
+@Builder
 public class MessageEntity {
+
     @Id
     @UuidGenerator
     @Column(length = 36, updatable = false, nullable = false)
     private String id;
 
-    @Column(name = "conversation_id", columnDefinition = "CHAR(36)", nullable = false)
-    private String conversationId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "conversation_id", nullable = false)
+    private ConversationEntity conversation;
 
-    @Column(name = "sender_id", columnDefinition = "CHAR(36)", nullable = false)
-    private String senderId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "sender_id", nullable = false)
+    private UserEntity sender;
 
-    @Column(length = 500)
+    @Column(nullable = true, length = 500)
     private String content;
 
     @Column(name = "is_deleted", nullable = false)
-    private boolean isDeleted;
+    @Builder.Default
+    private boolean isDeleted = false;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 
+    @CreationTimestamp
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    // Getters, Setters, Constructeurs
-    public String getId() {
-        return id;
-    }
-
-    public String getConversationId() {
-        return conversationId;
-    }
-
-    public String getSenderId() {
-        return senderId;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public boolean isDeleted() {
-        return isDeleted;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
+    private Instant updatedAt;
 }

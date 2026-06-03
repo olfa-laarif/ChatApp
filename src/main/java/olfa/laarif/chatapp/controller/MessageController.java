@@ -1,17 +1,18 @@
 package olfa.laarif.chatapp.controller;
 
-import olfa.laarif.chatapp.entity.MessageEntity;
+import jakarta.validation.Valid;
+import olfa.laarif.chatapp.dto.MessageResponse;
+import olfa.laarif.chatapp.dto.SendMessageRequest;
 import olfa.laarif.chatapp.service.MessageService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/message")
+@RequestMapping("/api/messages")
 public class MessageController {
 
     private final MessageService messageService;
@@ -20,12 +21,22 @@ public class MessageController {
         this.messageService = messageService;
     }
 
-    @GetMapping("/messages")
-    public ResponseEntity<List<MessageEntity>> getConversationMessages(
-            @RequestParam("user1") String user1Id,
-            @RequestParam("user2") String user2Id) {
+    @PostMapping
+    public ResponseEntity<MessageResponse> sendMessage(
+            Authentication authentication,
+            @Valid @RequestBody SendMessageRequest request) {
+        String senderPhoneNumber = authentication.getName();
+        MessageResponse response = messageService.sendMessage(senderPhoneNumber, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 
-        List<MessageEntity> messages = messageService.getMessagesBetweenUsers(user1Id, user2Id);
-        return ResponseEntity.ok(messages);
+    @GetMapping("/conversation/{conversationId}")
+    public ResponseEntity<List<MessageResponse>> getConversationMessages(
+            Authentication authentication,
+            @PathVariable String conversationId) {
+        String userPhoneNumber = authentication.getName();
+        return ResponseEntity.ok(
+                messageService.getConversationMessages(userPhoneNumber, conversationId)
+        );
     }
 }

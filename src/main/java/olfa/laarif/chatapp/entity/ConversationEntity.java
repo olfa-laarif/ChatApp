@@ -1,32 +1,42 @@
 package olfa.laarif.chatapp.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.time.Instant;
 
 @Entity
-@Table(name = "conversations")
-@Data
+@Table(
+        name = "conversations",
+        uniqueConstraints = @UniqueConstraint(
+                name = "one_conversation_per_pair",
+                columnNames = {"user1_id", "user2_id"}
+        )
+)
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
+@Builder
 public class ConversationEntity {
+
     @Id
     @UuidGenerator
     @Column(length = 36, updatable = false, nullable = false)
     private String id;
 
-    @Column(name = "user1_id", columnDefinition = "CHAR(36)", nullable = false)
-    private String user1Id;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user1_id", nullable = false)
+    private UserEntity user1;
 
-    @Column(name = "user2_id", columnDefinition = "CHAR(36)", nullable = false)
-    private String user2Id;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user2_id", nullable = false)
+    private UserEntity user2;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "last_message_at", nullable = false)
-    private LocalDateTime lastMessageAt;
-
-
+    private Instant lastMessageAt;
 }
