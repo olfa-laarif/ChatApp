@@ -3,6 +3,7 @@ package olfa.laarif.chatapp.service.impl;
 import olfa.laarif.chatapp.dto.FriendshipRequest;
 import olfa.laarif.chatapp.dto.FriendshipResponse;
 import olfa.laarif.chatapp.dto.UserResponse;
+import olfa.laarif.chatapp.dto.notification.FriendRequestNotification;
 import olfa.laarif.chatapp.entity.FriendshipEntity;
 import olfa.laarif.chatapp.entity.UserEntity;
 import olfa.laarif.chatapp.enums.FriendshipStatus;
@@ -12,6 +13,7 @@ import olfa.laarif.chatapp.exception.UserNotFoundException;
 import olfa.laarif.chatapp.repository.FriendshipRepository;
 import olfa.laarif.chatapp.repository.UserRepository;
 import olfa.laarif.chatapp.service.FriendshipService;
+import olfa.laarif.chatapp.service.SseService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +24,14 @@ public class FriendshipServiceImpl implements FriendshipService {
 
     private final UserRepository userRepository;
     private final FriendshipRepository friendshipRepository;
+    private final SseService sseService;
 
     public FriendshipServiceImpl(UserRepository userRepository,
-                                 FriendshipRepository friendshipRepository) {
+                                 FriendshipRepository friendshipRepository,
+                                 SseService sseService) {
         this.userRepository = userRepository;
         this.friendshipRepository = friendshipRepository;
+        this.sseService = sseService;
     }
 
     @Override
@@ -57,6 +62,17 @@ public class FriendshipServiceImpl implements FriendshipService {
                 .build();
 
         FriendshipEntity saved = friendshipRepository.save(friendship);
+
+        sseService.notifyFriendRequestReceived(
+                receiver.getId(),
+                FriendRequestNotification.builder()
+                        .requestId(saved.getId())
+                        .requesterId(requester.getId())
+                        .requesterUsername(requester.getUsername())
+                        .requesterPhoneNumber(requester.getPhoneNumber())
+                        .sentAt(saved.getCreatedAt())
+                        .build()
+        );
 
         return toResponse(saved);
     }
