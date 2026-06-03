@@ -1,0 +1,154 @@
+### Variables
+@host = http://localhost:8080
+@phoneAlice = 0601010101
+@phoneBob   = 0602020202
+@phoneOffline = 0603030303
+
+### ─────────────────────────────────────────
+### SETUP — Créer les utilisateurs
+### ─────────────────────────────────────────
+
+### 1. Register Alice
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Alice",
+  "password": "alice123",
+  "phoneNumber": "{{phoneAlice}}",
+  "email": "alice@test.com"
+}
+
+### 2. Register Bob
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Bob",
+  "password": "bob123",
+  "phoneNumber": "{{phoneBob}}",
+  "email": "bob@test.com"
+}
+
+### 3. Register Charlie (utilisé pour le scénario email — jamais connecté en SSE)
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Charlie",
+  "password": "charlie123",
+  "phoneNumber": "{{phoneOffline}}",
+  "email": "charlie@test.com"
+}
+
+### ─────────────────────────────────────────
+### SETUP — Login
+### ─────────────────────────────────────────
+
+### 4. Login Alice (capture token)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneAlice}}",
+  "password": "alice123"
+}
+
+> {%
+    client.global.set("tokenAlice", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### 5. Login Bob (capture token)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneBob}}",
+  "password": "bob123"
+}
+
+> {%
+    client.global.set("tokenBob", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### ─────────────────────────────────────────
+### SCÉNARIO A — Alice connectée → event SSE reçu
+###
+### ⚠ AVANT d'exécuter la requête 6, ouvrir un terminal et lancer :
+###   curl.exe -N -H "Authorization: Bearer <tokenAlice>" http://localhost:8080/sse/subscribe
+### ─────────────────────────────────────────
+
+### 6. Bob envoie une demande d'ami à Alice (expects 201)
+### → Résultat attendu : event FRIEND_REQUEST_RECEIVED dans le terminal curl d'Alice
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenBob}}
+
+{
+  "phoneNumber": "{{phoneAlice}}"
+}
+
+### ─────────────────────────────────────────
+### SCÉNARIO B — Charlie hors ligne → fallback email
+###
+### Ne pas ouvrir de curl pour Charlie
+###   Résultat attendu : email visible dans MailHog → http://localhost:8025
+### ─────────────────────────────────────────
+
+### 7. Login Bob (refresh token si expiré)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneBob}}",
+  "password": "bob123"
+}
+
+> {%
+    client.global.set("tokenBob", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### 8. Bob envoie une demande d'ami à Charlie (hors ligne, expects 201)
+### → Résultat attendu : email envoyé à charlie@test.com — vérifier MailHog
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenBob}}
+
+{
+  "phoneNumber": "{{phoneOffline}}"
+}
+
+### ─────────────────────────────────────────
+### CAS D'ERREUR
+### ─────────────────────────────────────────
+
+### 9. S'abonner au SSE sans token (expects 401)
+GET {{host}}/sse/subscribe
+Accept: text/event-stream
+
+### 10. Envoyer une demande à un numéro inexistant (expects 404)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenBob}}
+
+{
+  "phoneNumber": "0699999999"
+}
+
+### 11. Envoyer une demande déjà existante (expects 409)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenBob}}
+
+{
+  "phoneNumber": "{{phoneAlice}}"
+}
+
+### 12. S'envoyer une demande à soi-même (expects 409)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenBob}}
+
+{
+  "phoneNumber": "{{phoneBob}}"
+}
