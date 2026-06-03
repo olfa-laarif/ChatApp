@@ -28,8 +28,10 @@ public interface ConversationRepository extends JpaRepository<ConversationEntity
             @Param("receiver") UserEntity receiver,
             @Param("type") ConversationType type
     );
-    @Query("SELECT c FROM ConversationEntity c " +
-            "JOIN c.members m " +
-            "WHERE m.user.id = :userId " +
+    @Query("SELECT DISTINCT c FROM ConversationEntity c " +
+            "JOIN FETCH c.members m " +
+            "JOIN FETCH m.user " +
+            "WHERE c.id IN (SELECT conv.id FROM ConversationEntity conv JOIN conv.members mem WHERE mem.user.id = :userId) " +
             "ORDER BY c.lastMessageAt DESC")
-    List<ConversationEntity> findAllConversationsByUserIdOrderByLastMessageAt(@Param("userId") String userId);}
+    List<ConversationEntity> findAllConversationsByUserIdOrderByLastMessageAt(@Param("userId") String userId);
+}

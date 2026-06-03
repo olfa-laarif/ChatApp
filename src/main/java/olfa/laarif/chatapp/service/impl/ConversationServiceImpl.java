@@ -39,7 +39,7 @@ public class ConversationServiceImpl implements ConversationService {
         this.friendshipRepository = friendshipRepository;
     }
 
-
+    @Override
     @Transactional(readOnly = true)
     public List<ConversationResponse> getUserConversationsOrderedByLastMessage(String phoneNumber) {
         UserEntity user = userRepository.findByPhoneNumber(phoneNumber)
@@ -142,6 +142,12 @@ public class ConversationServiceImpl implements ConversationService {
             }
         }
 
+        // Last message preview. Null if the conversation has no messages yet
+        // (typically a newly-created group).
+        String lastMessage = conv.getMessages().isEmpty()
+                ? null
+                : conv.getMessages().get(0).getContent();
+
         return new ConversationResponse(
                 conv.getId(),
                 conv.getConversationType(),
@@ -149,7 +155,8 @@ public class ConversationServiceImpl implements ConversationService {
                 friendId,
                 friendUsername,
                 groupName,
-                memberResponses
+                memberResponses,
+                lastMessage
         );
     }
 }

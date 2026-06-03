@@ -85,19 +85,24 @@ POST {{host}}/api/friendships/{{friendshipId}}/accept
 Authorization: Bearer {{tokenB}}
 
 ### 8. Lucas envoie un message à Camille (expects 201)
-POST {{host}}/api/messages
-Content-Type: application/json
+POST  {{host}}/api/messages
 Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+Accept: */*
 
-{
-  "receiverPhoneNumber": "{{phoneB}}",
-  "content": "Salut Camille !"
-}
+--WebAppBoundary
+Content-Disposition: form-data; name="receiverPhoneNumber"
+
+{{phoneB}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
+
+Salut Camille !
+--WebAppBoundary--
 
 > {%
     client.global.set("conversationId", response.body.conversationId);
 %}
-
 ### 9. Camille répond à Lucas (expects 201 — même conversationId)
 POST {{host}}/api/messages
 Content-Type: application/json

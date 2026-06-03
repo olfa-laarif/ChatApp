@@ -27,4 +27,7 @@ public class ConversationResponse {
     // Always populated. Useful for groups, also lets the front know the
     // participants of a DIRECT conversation.
     private List<UserResponse> members;
+
+    // Content of the most recent message in the conversation. null if none yet.
+    private String lastMessage;
 }
