@@ -1,6 +1,7 @@
 package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.dto.*;
+import olfa.laarif.chatapp.dto.notification.MessageDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.entity.*;
 import olfa.laarif.chatapp.entity.listener.MessageActionEvent;
@@ -271,6 +272,21 @@ public class MessageServiceImpl implements MessageService {
             attachmentRepository.delete(attachment);
         });
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
+
+        String recipientId = message.getConversation().getMembers().stream()
+                .filter(m -> !m.getUser().getId().equals(user.getId()))
+                .map(m -> m.getUser().getId())
+                .findFirst()
+                .orElseThrow();
+
+        sseService.notifyMessageDeleted(
+                recipientId,
+                MessageDeletedNotification.builder()
+                        .messageId(message.getId())
+                        .conversationId(message.getConversation().getId())
+                        .deletedAt(Instant.now())
+                        .build()
+        );
 
     }
 
