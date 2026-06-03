@@ -3,6 +3,7 @@ package olfa.laarif.chatapp.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
@@ -37,6 +38,7 @@ public class ConversationEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @UpdateTimestamp
     @Column(name = "last_message_at", nullable = false)
     private Instant lastMessageAt;
 }
