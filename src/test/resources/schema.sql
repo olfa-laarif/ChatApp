@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone_number VARCHAR(20)  NOT NULL UNIQUE,
     email        VARCHAR(255) NOT NULL UNIQUE,
     username     VARCHAR(100) NOT NULL,
+    role         VARCHAR(20)  NOT NULL DEFAULT 'USER', -- Remplacement ENUM
     created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_users_phone_number (phone_number)

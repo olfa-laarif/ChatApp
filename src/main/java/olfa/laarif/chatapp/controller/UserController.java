@@ -33,6 +33,20 @@ public class UserController {
         }
     }
 
+    @PostMapping("/register/admin")
+    public ResponseEntity<UserEntity> registerAdmin(@RequestBody UserRegistrationDto registrationDto) {
+        Optional<UserEntity> existingUser = userService.findByPhoneNumber(registrationDto.getPhoneNumber());
+        if (existingUser.isPresent()) {
+            return ResponseEntity.badRequest().body(null);
+        }
+        try {
+            UserEntity admin = userService.registerAdmin(registrationDto);
+            return ResponseEntity.status(201).body(admin);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(null);
+        }
+    }
+
     @PostMapping("/login")
     public ResponseEntity<String> loginUser(@RequestBody UserLoginDto loginDto) {
         Optional<String> token = userService.login(loginDto);
