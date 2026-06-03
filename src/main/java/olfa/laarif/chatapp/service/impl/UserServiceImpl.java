@@ -1,4 +1,4 @@
-package olfa.laarif.chatapp.service;
+package olfa.laarif.chatapp.service.impl;
 
 
 import olfa.laarif.chatapp.config.JwtUtil;
@@ -7,6 +7,7 @@ import olfa.laarif.chatapp.controller.request.UserRegistrationDto;
 import olfa.laarif.chatapp.entity.UserEntity;
 import olfa.laarif.chatapp.enums.Role;
 import olfa.laarif.chatapp.repository.UserRepository;
+import olfa.laarif.chatapp.service.UserService;
 import org.springframework.stereotype.Service;
 
 import org.springframework.beans.factory.annotation.Autowired;

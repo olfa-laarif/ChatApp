@@ -14,7 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+
+import static java.time.Instant.now;
 
 @Service
 public class MessageServiceImpl implements MessageService {
@@ -67,14 +70,38 @@ public class MessageServiceImpl implements MessageService {
         // 2. Récupération ou création de la conversation
         Instant now = Instant.now();
         ConversationEntity conversation = conversationRepository
-                .findBetween(sender, receiver)
-                .orElseGet(() -> conversationRepository.save(
-                        ConversationEntity.builder()
-                                .user1(sender)
-                                .user2(receiver)
-                                .lastMessageAt(now)
-                                .build()
-                ));
+                .findDirectConversationBetweenUsers(sender, receiver,ConversationType.DIRECT)
+                .orElseGet(() -> {
+                    // Initialize the base conversation
+                    ConversationEntity newConv = ConversationEntity.builder()
+                            .conversationType(ConversationType.DIRECT)
+
+                            .createdAt(now())
+                            .lastMessageAt(now())
+                            .members(new ArrayList<>())
+                            .build();
+
+                    // Create and attach both members
+                    ConversationMemberEntity memberSender = ConversationMemberEntity.builder()
+                            .conversation(newConv)
+                            .user(sender)
+
+                            .joinedAt(now())
+                            .build();
+
+                    // Note: Change ConversationMemberEntity to whatever your exact class name is
+                    ConversationMemberEntity memberReceiver = ConversationMemberEntity.builder()
+                            .conversation(newConv)
+                            .user(receiver)
+                            //  .role(MemberRole.MEMBER)
+                            .joinedAt(now())
+                            .build();
+
+                    newConv.getMembers().add(memberSender);
+                    newConv.getMembers().add(memberReceiver);
+
+                    return conversationRepository.save(newConv);
+                });
 
         conversation.setLastMessageAt(now);
         conversationRepository.save(conversation);
@@ -151,8 +178,9 @@ public class MessageServiceImpl implements MessageService {
         ConversationEntity conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ConversationNotFoundException("Conversation not found: " + conversationId));
 
-        boolean isParticipant = conversation.getUser1().getId().equals(user.getId())
-                || conversation.getUser2().getId().equals(user.getId());
+        // 3. FIX: Check if the user is part of the conversation members list
+        boolean isParticipant = conversation.getMembers().stream()
+                .anyMatch(member -> member.getUser().getId().equals(user.getId()));
 
         if (!isParticipant) {
             throw new ConversationNotFoundException("Conversation not found: " + conversationId);
