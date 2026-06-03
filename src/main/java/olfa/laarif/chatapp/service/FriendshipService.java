@@ -12,4 +12,6 @@ public interface FriendshipService {
     List<FriendshipResponse> listReceivedPendingRequests(String receiverPhoneNumber);
 
     FriendshipResponse acceptFriendRequest(String receiverPhoneNumber, String friendshipId);
+
+    FriendshipResponse declineFriendRequest(String receiverPhoneNumber, String friendshipId);
 }

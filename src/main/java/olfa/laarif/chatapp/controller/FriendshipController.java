@@ -48,4 +48,12 @@ public class FriendshipController {
         String receiverPhoneNumber = authentication.getName();
         return ResponseEntity.ok(friendshipService.acceptFriendRequest(receiverPhoneNumber, friendshipId));
     }
+
+    @PostMapping("/{id}/decline")
+    public ResponseEntity<FriendshipResponse> declineFriendRequest(
+            Authentication authentication,
+            @PathVariable("id") String friendshipId) {
+        String receiverPhoneNumber = authentication.getName();
+        return ResponseEntity.ok(friendshipService.declineFriendRequest(receiverPhoneNumber, friendshipId));
+    }
 }

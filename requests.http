@@ -2,6 +2,7 @@
 @host = http://localhost:8080
 @phoneA = +33600000001
 @phoneB = +33600000002
+@phoneC = +33600000003
 
 ### 1. Register user A
 POST {{host}}/users/register
@@ -85,6 +86,68 @@ Authorization: Bearer {{token}}
 ### 4g. Try to accept a non-existing friendship (expects 404)
 POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/accept
 Authorization: Bearer {{tokenB}}
+
+### 4h. Register user C (for the decline test)
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "bob",
+  "password": "test123",
+  "phoneNumber": "{{phoneC}}",
+  "email": "bob@test.com"
+}
+
+### 4i. Login as user C (stores tokenC)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneC}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenC", response.body);
+%}
+
+
+
+
+### 4j. A sends a friend request to C (expects 201)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "{{phoneC}}"
+}
+
+### 4k. GET /api/friendships/received as user C (capture first id in {{friendshipIdC}})
+GET {{host}}/api/friendships/received
+Authorization: Bearer {{tokenC}}
+
+> {%
+    if (response.body && response.body.length > 0) {
+        client.global.set("friendshipIdC", response.body[0].id);
+    }
+%}
+
+### 4l. Decline the friend request as user C (expects 200, status DECLINED)
+POST {{host}}/api/friendships/{{friendshipIdC}}/decline
+Authorization: Bearer {{tokenC}}
+
+### 4m. Decline again (expects 409 - already processed)
+POST {{host}}/api/friendships/{{friendshipIdC}}/decline
+Authorization: Bearer {{tokenC}}
+
+### 4n. Try to decline as user A (the requester, not the receiver) (expects 404)
+POST {{host}}/api/friendships/{{friendshipIdC}}/decline
+Authorization: Bearer {{token}}
+
+### 4o. Try to decline a non-existing friendship (expects 404)
+POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/decline
+Authorization: Bearer {{tokenC}}
 
 ### 5. Same request again (expects 409 - already pending)
 POST {{host}}/api/friendships
