@@ -1,13 +1,14 @@
 package olfa.laarif.chatapp.controller;
 
-import jakarta.validation.Valid;
+import olfa.laarif.chatapp.dto.EditMessageRequest;
 import olfa.laarif.chatapp.dto.MessageResponse;
-import olfa.laarif.chatapp.dto.SendMessageRequest;
 import olfa.laarif.chatapp.service.MessageService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,7 +22,7 @@ public class MessageController {
         this.messageService = messageService;
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MessageResponse> sendMessage(
             Authentication authentication,
             @RequestParam("receiverPhoneNumber") String receiverPhoneNumber,
@@ -68,9 +69,8 @@ public class MessageController {
             @PathVariable String messageId) {
 
         String userPhoneNumber = authentication.getName();
-        return ResponseEntity.ok(
-                messageService.getConversationMessages(userPhoneNumber, conversationId)
-        );
+        messageService.deleteMessage(userPhoneNumber, messageId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{messageId}/attachment")
