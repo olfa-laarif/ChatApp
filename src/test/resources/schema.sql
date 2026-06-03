@@ -36,17 +36,23 @@ CREATE TABLE IF NOT EXISTS friendships (
 -- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS conversations (
     id              CHAR(36)  PRIMARY KEY,
-    user1_id        CHAR(36)  NOT NULL,
-    user2_id        CHAR(36)  NOT NULL,
+    conversation_type         ENUM('DIRECT', 'GROUP') NOT NULL DEFAULT 'DIRECT',
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_message_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT fk_conversation_user1        FOREIGN KEY (user1_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_conversation_user2        FOREIGN KEY (user2_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT no_self_conversation         CHECK (user1_id <> user2_id),
-    CONSTRAINT one_conversation_per_pair    UNIQUE (user1_id, user2_id),
-
     INDEX idx_conversations_last_message_at (last_message_at DESC)
+    );
+
+
+CREATE TABLE IF NOT EXISTS conversation_members (
+    id              CHAR(36)  PRIMARY KEY,
+    conversation_id CHAR(36)  NOT NULL,
+    user_id         CHAR(36)  NOT NULL,
+    joined_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_member_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    CONSTRAINT fk_member_user         FOREIGN KEY (user_id)         REFERENCES users(id)         ON DELETE CASCADE,
+    CONSTRAINT unique_conversation_user UNIQUE (conversation_id, user_id)
     );
 
 -- ─────────────────────────────────────────

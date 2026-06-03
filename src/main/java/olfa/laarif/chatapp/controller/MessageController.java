@@ -21,7 +21,7 @@ public class MessageController {
         this.messageService = messageService;
     }
 
-    @PostMapping("send")
+    @PostMapping()
     public ResponseEntity<MessageResponse> sendMessage(
             Authentication authentication,
             @Valid @RequestBody SendMessageRequest request) {

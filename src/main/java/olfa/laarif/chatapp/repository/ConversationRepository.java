@@ -2,29 +2,34 @@ package olfa.laarif.chatapp.repository;
 
 import olfa.laarif.chatapp.entity.ConversationEntity;
 import olfa.laarif.chatapp.entity.UserEntity;
+import olfa.laarif.chatapp.enums.ConversationType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.awt.*;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface ConversationRepository extends JpaRepository<ConversationEntity, String> {
 
-    @Query("""
-        SELECT c FROM ConversationEntity c
-        WHERE (c.user1 = :userA AND c.user2 = :userB)
-           OR (c.user1 = :userB AND c.user2 = :userA)
-    """)
-    Optional<ConversationEntity> findBetween(
-            @Param("userA") UserEntity userA,
-            @Param("userB") UserEntity userB
-    );
+
 
     @Query("SELECT c FROM ConversationEntity c " +
-            "WHERE c.user1.id = :userId OR c.user2.id = :userId " +
+            "JOIN c.members m1 " +
+            "JOIN c.members m2 " +
+            "WHERE c.conversationType = :type " +
+            "AND m1.user = :sender " +
+            "AND m2.user = :receiver")
+    Optional<ConversationEntity> findDirectConversationBetweenUsers(
+            @Param("sender") UserEntity sender,
+            @Param("receiver") UserEntity receiver,
+            @Param("type") ConversationType type
+    );
+    @Query("SELECT c FROM ConversationEntity c " +
+            "JOIN c.members m " +
+            "WHERE m.user.id = :userId " +
             "ORDER BY c.lastMessageAt DESC")
-    List<ConversationEntity> findAllConversationsByUserIdOrderByLastMessageBy(@Param("userId") String userId);
-}
+    List<ConversationEntity> findAllConversationsByUserIdOrderByLastMessageAt(@Param("userId") String userId);}
