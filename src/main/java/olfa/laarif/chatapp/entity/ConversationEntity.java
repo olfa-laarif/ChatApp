@@ -40,6 +40,5 @@ public class ConversationEntity {
 
     @UpdateTimestamp
     @Column(name = "last_message_at", nullable = false)
-    @UpdateTimestamp
     private Instant lastMessageAt;
 }
