@@ -38,6 +38,7 @@ public class ConversationEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @UpdateTimestamp
     @Column(name = "last_message_at", nullable = false)
     @UpdateTimestamp
     private Instant lastMessageAt;

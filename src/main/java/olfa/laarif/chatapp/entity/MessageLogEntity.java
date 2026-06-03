@@ -2,17 +2,19 @@ package olfa.laarif.chatapp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import olfa.laarif.chatapp.enums.MessageAction;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.time.Instant;
 
 @Entity
-@Table(name = "message_logs")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Table(
+        name = "message_logs",
+        indexes = @Index(name = "idx_message_logs_message_id", columnList = "message_id")
+)
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 @Builder
 public class MessageLogEntity {
 
@@ -20,17 +22,20 @@ public class MessageLogEntity {
     @UuidGenerator
     @Column(length = 36, updatable = false, nullable = false)
     private String id;
-    @Column(name = "message_id", nullable = false)
-    private String messageId;
 
-    @Column(name = "user_id", nullable = false)
-    private String userId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "message_id", nullable = false)
+    private MessageEntity message;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserEntity user;
 
-    @Column(nullable = false)
-    private String action;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private MessageAction action;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
+    private Instant createdAt;
 }

@@ -56,7 +56,7 @@ public class FriendshipServiceImpl implements FriendshipService {
                 .status(FriendshipStatus.PENDING)
                 .build();
 
-        FriendshipEntity saved = friendshipRepository.save(friendship);
+        FriendshipEntity saved = friendshipRepository.saveAndFlush(friendship);
 
         return toResponse(saved);
     }
