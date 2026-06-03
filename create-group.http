@@ -1,0 +1,258 @@
+### Variables
+@host = http://localhost:8080
+@phoneA = +33611111111
+@phoneB = +33622222222
+@phoneC = +33633333333
+
+### ─────────────────────────────────────────
+### STORY CREATE-GROUP — Create a GROUP conversation
+### ─────────────────────────────────────────
+###
+### Setup: 3 registered users (A, B, C). A must be friends with B and C
+### (status ACCEPTED) otherwise createGroup will fail.
+### A is the group creator. B and C are added as members.
+### The creator is added automatically.
+### ─────────────────────────────────────────
+
+
+### 1. Register user A
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Alice",
+  "password": "test123",
+  "phoneNumber": "{{phoneA}}",
+  "email": "alice@test.com"
+}
+
+### 2. Register user B
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Bob",
+  "password": "test123",
+  "phoneNumber": "{{phoneB}}",
+  "email": "bob@test.com"
+}
+
+### 3. Register user C
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Charlie",
+  "password": "test123",
+  "phoneNumber": "{{phoneC}}",
+  "email": "charlie@test.com"
+}
+
+### 4. Login Alice (creator)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneA}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenA", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+
+### 4b. Login Bob
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneB}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenB", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+
+### 4c. Login Charlie
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneC}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenC", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+
+### ─────────────────────────────────────────
+### Friendship setup: Alice <-> Bob, Alice <-> Charlie (NOT Bob <-> Charlie)
+### ─────────────────────────────────────────
+
+### 4d. Alice sends friend request to Bob
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "phoneNumber": "{{phoneB}}"
+}
+
+### 4e. Bob fetches received requests
+GET {{host}}/api/friendships/received
+Authorization: Bearer {{tokenB}}
+
+> {%
+    client.global.set("friendshipIdAB", response.body[0].id);
+%}
+
+### 4f. Bob accepts
+POST {{host}}/api/friendships/{{friendshipIdAB}}/accept
+Authorization: Bearer {{tokenB}}
+
+
+### 4g. Alice sends friend request to Charlie
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "phoneNumber": "{{phoneC}}"
+}
+
+### 4h. Charlie fetches received requests
+GET {{host}}/api/friendships/received
+Authorization: Bearer {{tokenC}}
+
+> {%
+    client.global.set("friendshipIdAC", response.body[0].id);
+%}
+
+### 4i. Charlie accepts
+POST {{host}}/api/friendships/{{friendshipIdAC}}/accept
+Authorization: Bearer {{tokenC}}
+
+
+### ─────────────────────────────────────────
+### Happy path
+### ─────────────────────────────────────────
+
+### 5. Alice creates a group with Bob and Charlie (expects 201)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "name": "Vacances 2026",
+  "memberPhoneNumbers": ["{{phoneB}}", "{{phoneC}}"]
+}
+
+> {%
+    client.global.set("groupId", response.body.conversationId);
+%}
+
+
+### 6. Alice lists her conversations — should see the group with name="Vacances 2026"
+GET {{host}}/api/conversations
+Authorization: Bearer {{tokenA}}
+
+
+### ─────────────────────────────────────────
+### Edge cases / errors
+### ─────────────────────────────────────────
+
+### 7. Empty name (expects 400)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "name": "",
+  "memberPhoneNumbers": ["{{phoneB}}"]
+}
+
+
+### 8. Empty member list (expects 400)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "name": "Solo",
+  "memberPhoneNumbers": []
+}
+
+
+### 9. Only person listed = the creator (expects 400 - one-person group)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "name": "Just me",
+  "memberPhoneNumbers": ["{{phoneA}}"]
+}
+
+
+### 10. One of the members does not exist (expects 404)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "name": "Ghost group",
+  "memberPhoneNumbers": ["{{phoneB}}", "+33699999999"]
+}
+
+
+### 10b. One of the members is not friends with the creator
+###      Bob tries to add Charlie, but they are NOT friends with each other
+###      (Alice is the common friend but is not involved here)
+###      → expects 404 (FriendshipNotFoundException)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenB}}
+
+{
+  "name": "Without Alice",
+  "memberPhoneNumbers": ["{{phoneC}}"]
+}
+
+
+### 11. No token (expects 401)
+POST {{host}}/api/conversations
+Content-Type: application/json
+
+{
+  "name": "No auth",
+  "memberPhoneNumbers": ["{{phoneB}}"]
+}
+
+
+### 12. Creator listed in members: ignored, group is still created
+###     (expects 201 — the creator entry is deduplicated)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "name": "With myself",
+  "memberPhoneNumbers": ["{{phoneA}}", "{{phoneB}}"]
+}
+
+
+### 13. Duplicates in the list: automatically deduplicated
+###     (expects 201 — the group contains 1 creator + 1 other member = 2 total)
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "name": "With duplicates",
+  "memberPhoneNumbers": ["{{phoneB}}", "{{phoneB}}", "{{phoneB}}"]
+}

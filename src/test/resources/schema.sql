@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS friendships (
 CREATE TABLE IF NOT EXISTS conversations (
     id              CHAR(36)  PRIMARY KEY,
     conversation_type         ENUM('DIRECT', 'GROUP') NOT NULL DEFAULT 'DIRECT',
+    name            VARCHAR(100) NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_message_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
