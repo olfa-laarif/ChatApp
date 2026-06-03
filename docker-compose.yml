@@ -11,5 +11,13 @@ services:
     volumes:
       - chatapp-mysql-data:/var/lib/mysql
 
+  mailhog:
+    image: mailhog/mailhog
+    container_name: chatapp-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   chatapp-mysql-data:
