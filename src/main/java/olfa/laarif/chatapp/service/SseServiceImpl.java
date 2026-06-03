@@ -1,6 +1,8 @@
 package olfa.laarif.chatapp.service;
 
+import olfa.laarif.chatapp.dto.notification.FriendRequestAcceptedNotification;
 import olfa.laarif.chatapp.dto.notification.FriendRequestNotification;
+import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.dto.notification.SseEvent;
 import olfa.laarif.chatapp.entity.UserEntity;
 import olfa.laarif.chatapp.repository.UserRepository;
@@ -30,6 +32,17 @@ public class SseServiceImpl implements SseService {
     public void notifyFriendRequestReceived(String receiverId, FriendRequestNotification payload) {
         sendEvent(receiverId, "FRIEND_REQUEST_RECEIVED", payload,
                 user -> emailService.sendFriendRequestEmail(user.getEmail(), user.getUsername(), payload));
+    }
+
+    @Override
+    public void notifyFriendRequestAccepted(String requesterId, FriendRequestAcceptedNotification payload) {
+        sendEvent(requesterId, "FRIEND_REQUEST_ACCEPTED", payload,
+                user -> emailService.sendFriendRequestAcceptedEmail(user.getEmail(), user.getUsername(), payload));
+    }
+
+    @Override
+    public void notifyNewMessage(String recipientId, NewMessageNotification payload) {
+        sendEvent(recipientId, "NEW_MESSAGE", payload, null);
     }
 
     <T> void sendEvent(String userId, String eventType, T payload, Consumer<UserEntity> emailFallback) {

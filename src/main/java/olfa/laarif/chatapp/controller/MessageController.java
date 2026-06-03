@@ -21,12 +21,23 @@ public class MessageController {
         this.messageService = messageService;
     }
 
-    @PostMapping()
+    @PostMapping
     public ResponseEntity<MessageResponse> sendMessage(
             Authentication authentication,
-            @Valid @RequestBody SendMessageRequest request) {
+            @RequestParam("receiverPhoneNumber") String receiverPhoneNumber,
+            @RequestParam(value = "content", required = false) String content,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+
         String senderPhoneNumber = authentication.getName();
-        MessageResponse response = messageService.sendMessage(senderPhoneNumber, request);
+
+        if (receiverPhoneNumber == null || receiverPhoneNumber.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        if ((content == null || content.isBlank()) && (file == null || file.isEmpty())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        MessageResponse response = messageService.sendMessage(senderPhoneNumber, receiverPhoneNumber, content, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -34,12 +45,41 @@ public class MessageController {
     public ResponseEntity<List<MessageResponse>> getConversationMessages(
             Authentication authentication,
             @PathVariable String conversationId) {
+
+        String userPhoneNumber = authentication.getName();
+        List<MessageResponse> responses = messageService.getConversationMessages(userPhoneNumber, conversationId);
+        return ResponseEntity.ok(responses);
+    }
+
+    @PutMapping("/{messageId}")
+    public ResponseEntity<MessageResponse> editMessage(
+            Authentication authentication,
+            @PathVariable String messageId,
+            @RequestBody EditMessageRequest request) {
+
+        String userPhoneNumber = authentication.getName();
+        MessageResponse response = messageService.editMessage(userPhoneNumber, messageId, request.getContent());
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{messageId}")
+    public ResponseEntity<Void> deleteMessage(
+            Authentication authentication,
+            @PathVariable String messageId) {
+
         String userPhoneNumber = authentication.getName();
         return ResponseEntity.ok(
                 messageService.getConversationMessages(userPhoneNumber, conversationId)
         );
     }
 
+    @DeleteMapping("/{messageId}/attachment")
+    public ResponseEntity<Void> deleteAttachment(
+            Authentication authentication,
+            @PathVariable String messageId) {
 
-
+        String userPhoneNumber = authentication.getName();
+        messageService.deleteAttachment(userPhoneNumber, messageId);
+        return ResponseEntity.noContent().build();
+    }
 }

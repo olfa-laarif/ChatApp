@@ -1,4 +1,3 @@
-// src/main/java/com/example/demo/service/CustomUserDetailsService.java
 package olfa.laarif.chatapp.service;
 
 import olfa.laarif.chatapp.entity.UserEntity;

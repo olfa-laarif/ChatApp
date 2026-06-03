@@ -1,0 +1,206 @@
+### Variables
+@host = http://localhost:8080
+@phoneAlice   = 0601010101
+@phoneBob     = 0602020202
+@phoneOffline = 0604040404
+
+### ─────────────────────────────────────────
+### SETUP — Créer les utilisateurs
+### ─────────────────────────────────────────
+
+### 1. Register Alice
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Alice",
+  "password": "alice123",
+  "phoneNumber": "{{phoneAlice}}",
+  "email": "alice@test.com"
+}
+
+### 2. Register Bob
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Bob",
+  "password": "bob123",
+  "phoneNumber": "{{phoneBob}}",
+  "email": "bob@test.com"
+}
+
+### 3. Register David (utilisé pour le scénario email — jamais connecté en SSE)
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "David",
+  "password": "david123",
+  "phoneNumber": "{{phoneOffline}}",
+  "email": "david@test.com"
+}
+
+### ─────────────────────────────────────────
+### SETUP — Login
+### ─────────────────────────────────────────
+
+### 4. Login Alice (capture token)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneAlice}}",
+  "password": "alice123"
+}
+
+> {%
+    client.global.set("tokenAlice", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### 5. Login Bob (capture token)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneBob}}",
+  "password": "bob123"
+}
+
+> {%
+    client.global.set("tokenBob", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### ─────────────────────────────────────────
+### SCÉNARIO A — Bob connecté → event SSE reçu quand Alice accepte
+###
+### ⚠ AVANT d'exécuter la requête 7, ouvrir un terminal et lancer :
+###   curl.exe -N -H "Authorization: Bearer <tokenBob>" http://localhost:8080/sse/subscribe
+###   → Laisser le terminal ouvert, les events s'affichent en temps réel
+### ─────────────────────────────────────────
+
+### 6. Bob envoie une demande d'ami à Alice (expects 201, capture friendshipId)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenBob}}
+
+{
+  "phoneNumber": "{{phoneAlice}}"
+}
+
+> {%
+    if (response.body && response.body.id) {
+        client.global.set("friendshipId", response.body.id);
+    }
+%}
+
+### 6b. Alice récupère ses demandes reçues (pour vérifier l'ID)
+GET {{host}}/api/friendships/received
+Authorization: Bearer {{tokenAlice}}
+
+> {%
+    if (response.body && response.body.length > 0) {
+        client.global.set("friendshipId", response.body[0].id);
+    }
+%}
+
+### 7. Alice accepte la demande de Bob (expects 200)
+### → Résultat attendu : event FRIEND_REQUEST_ACCEPTED dans le terminal curl de Bob
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{tokenAlice}}
+
+### ─────────────────────────────────────────
+### SCÉNARIO B — David hors ligne → fallback email quand Alice accepte
+###
+### Ne pas ouvrir de curl pour David
+###   Résultat attendu : email visible dans MailHog → http://localhost:8025
+### ─────────────────────────────────────────
+
+### 8. Login David (capture token)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneOffline}}",
+  "password": "david123"
+}
+
+> {%
+    client.global.set("tokenDavid", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### 9. David envoie une demande d'ami à Alice (expects 201, capture friendshipId2)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenDavid}}
+
+{
+  "phoneNumber": "{{phoneAlice}}"
+}
+
+> {%
+    if (response.body && response.body.id) {
+        client.global.set("friendshipId2", response.body.id);
+    }
+%}
+
+### 10. Alice accepte la demande de David (hors ligne, expects 200)
+### → Résultat attendu : email envoyé à david@test.com — vérifier MailHog
+POST {{host}}/api/friendships/{{friendshipId2}}/accept
+Authorization: Bearer {{tokenAlice}}
+
+### ─────────────────────────────────────────
+### CAS LIMITE — Refus de demande (pas de notification)
+### ─────────────────────────────────────────
+
+### 11. Login Bob (refresh token si expiré)
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneBob}}",
+  "password": "bob123"
+}
+
+> {%
+    client.global.set("tokenBob", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### 12. Bob envoie une demande d'ami à David (expects 201, capture friendshipId3)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenBob}}
+
+{
+  "phoneNumber": "{{phoneOffline}}"
+}
+
+> {%
+    if (response.body && response.body.id) {
+        client.global.set("friendshipId3", response.body.id);
+    }
+%}
+
+### 13. David refuse la demande de Bob (expects 200, status DECLINED)
+### → Résultat attendu : aucune notification SSE ni email pour Bob (decline = pas de notif)
+POST {{host}}/api/friendships/{{friendshipId3}}/decline
+Authorization: Bearer {{tokenDavid}}
+
+### ─────────────────────────────────────────
+### CAS D'ERREUR
+### ─────────────────────────────────────────
+
+### 14. Accepter une demande inexistante (expects 404)
+POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/accept
+Authorization: Bearer {{tokenAlice}}
+
+### 15. Accepter une demande déjà traitée (expects 409)
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{tokenAlice}}
+
+### 16. Accepter la demande d'un autre (pas le bon receiver, expects 404)
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{tokenBob}}
+
+### 17. Sans token (expects 401)
+POST {{host}}/api/friendships/{{friendshipId}}/accept
