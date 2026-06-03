@@ -21,7 +21,7 @@ public class MessageEventListener {
     public void handleMessageAction(MessageActionEvent event) {
         MessageLogEntity log = MessageLogEntity.builder()
                 .messageId(event.getMessage().getId())
-                .userId(event.getMessage().getSenderId())
+                .userId(event.getMessage().getSender().getId())
                 .action(event.getAction().name())
                 .createdAt(LocalDateTime.now())
                 .build();

@@ -1,5 +1,6 @@
 package olfa.laarif.chatapp.service.impl;
 
+import olfa.laarif.chatapp.dto.MessageResponse;
 import olfa.laarif.chatapp.entity.ConversationEntity;
 import olfa.laarif.chatapp.entity.MessageEntity;
 import olfa.laarif.chatapp.entity.UserEntity;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static java.time.Instant.now;
 import static org.assertj.core.api.FactoryBasedNavigableListAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -60,32 +62,32 @@ class MessageServiceImplTest {
 
         // GIVEN - 2. Création de la conversation
         ConversationEntity conversation = new ConversationEntity();
-        conversation.setUser1Id(usr1.getId());
-        conversation.setUser2Id(usr2.getId());
-        conversation.setCreatedAt(LocalDateTime.now());
-        conversation.setLastMessageAt(LocalDateTime.now());
+        conversation.setUser1(usr1);
+        conversation.setUser2(usr2);
+        conversation.setCreatedAt(now());
+        conversation.setLastMessageAt(now());
         conversation=conversationRepository.save(conversation);
 
         // GIVEN - 3. Création des messages
         MessageEntity firstMessage = new MessageEntity();
-        firstMessage.setConversationId(conversation.getId());
-        firstMessage.setSenderId(usr1.getId());
+        firstMessage.setConversation(conversation);
+        firstMessage.setSender(usr1);
         firstMessage.setContent("Premier message");
-        firstMessage.setCreatedAt(LocalDateTime.now().minusMinutes(5));
-        firstMessage.setUpdatedAt(LocalDateTime.now());
+        firstMessage.setCreatedAt(now());
+        firstMessage.setUpdatedAt(now());
 
         MessageEntity secondMessage = new MessageEntity();
-        secondMessage.setConversationId(conversation.getId());
-        secondMessage.setSenderId(usr2.getId());
+        secondMessage.setConversation(conversation);
+        secondMessage.setSender(usr2);
         secondMessage.setContent("Deuxième message");
-        secondMessage.setCreatedAt(LocalDateTime.now());
-        secondMessage.setUpdatedAt(LocalDateTime.now());
+        secondMessage.setCreatedAt(now());
+        secondMessage.setUpdatedAt(now());
 
         messageRepository.save(firstMessage);
         messageRepository.save(secondMessage);
 
         // WHEN
-        List<MessageEntity> messages = chatService.getMessagesBetweenUsers(usr1.getId(), usr2.getId());
+        List<MessageResponse> messages = chatService.getConversationMessages("+33611111111", conversation.getId());
 
         // THEN
         assertEquals(messages.size(),2);

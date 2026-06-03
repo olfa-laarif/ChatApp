@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static java.time.Instant.now;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -50,10 +51,10 @@ class MessageEntityListenerTest {
 
         // GIVEN - 2. Création de la conversation
         conversation = new ConversationEntity();
-        conversation.setUser1Id(usr1.getId());
-        conversation.setUser2Id(usr2.getId());
-        conversation.setCreatedAt(LocalDateTime.now());
-        conversation.setLastMessageAt(LocalDateTime.now());
+        conversation.setUser1(usr1);
+        conversation.setUser2(usr2);
+        conversation.setCreatedAt(now());
+        conversation.setLastMessageAt(now());
         conversation = conversationRepository.save(conversation);
 
 
@@ -75,11 +76,11 @@ class MessageEntityListenerTest {
     void  userSendANewMessage(){
         // GIVEN - 3. Création des messages
         message = new MessageEntity();
-        message.setConversationId(conversation.getId());
-        message.setSenderId(usr1.getId());
+        message.setConversation(conversation);
+        message.setSender(usr1);
         message.setContent("Premier message");
-        message.setCreatedAt(LocalDateTime.now());
-        message.setUpdatedAt(LocalDateTime.now());
+        message.setCreatedAt(now());
+        message.setUpdatedAt(now());
         message=messageRepository.save(message);
         // 2. Publication de l'événement
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.SENT));
