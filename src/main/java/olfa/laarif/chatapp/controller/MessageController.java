@@ -64,22 +64,23 @@ public class MessageController {
     }
 
     @DeleteMapping("/{messageId}")
-    public ResponseEntity<Void> deleteMessage(
+    public ResponseEntity<String> deleteMessage(
             Authentication authentication,
             @PathVariable String messageId) {
 
         String userPhoneNumber = authentication.getName();
         messageService.deleteMessage(userPhoneNumber, messageId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok("message deleted successfully");
     }
 
     @DeleteMapping("/{messageId}/attachment")
-    public ResponseEntity<Void> deleteAttachment(
+    public ResponseEntity<String> deleteAttachment(
             Authentication authentication,
             @PathVariable String messageId) {
 
         String userPhoneNumber = authentication.getName();
         messageService.deleteAttachment(userPhoneNumber, messageId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok("message deleted successfully");
+
     }
 }

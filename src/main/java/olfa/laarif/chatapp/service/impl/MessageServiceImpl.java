@@ -3,12 +3,15 @@ package olfa.laarif.chatapp.service.impl;
 import olfa.laarif.chatapp.dto.*;
 import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.entity.*;
+import olfa.laarif.chatapp.entity.listener.MessageActionEvent;
 import olfa.laarif.chatapp.enums.*;
 import olfa.laarif.chatapp.exception.*;
 import olfa.laarif.chatapp.repository.*;
 import olfa.laarif.chatapp.service.FileStorageService;
 import olfa.laarif.chatapp.service.MessageService;
 import olfa.laarif.chatapp.service.SseService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,6 +34,9 @@ public class MessageServiceImpl implements MessageService {
     private final FileStorageService fileStorageService;
     private final SseService sseService;
 
+
+    private final ApplicationEventPublisher eventPublisher;
+
     public MessageServiceImpl(UserRepository userRepository,
                               FriendshipRepository friendshipRepository,
                               ConversationRepository conversationRepository,
@@ -38,7 +44,8 @@ public class MessageServiceImpl implements MessageService {
                               AttachmentRepository attachmentRepository,
                               MessageEditHistoryRepository messageEditHistoryRepository,
                               FileStorageService fileStorageService,
-                              SseService sseService) { // Le paramètre sseService est maintenant bien placé ici
+                              SseService sseService,
+                              ApplicationEventPublisher eventPublisher) { // Le paramètre sseService est maintenant bien placé ici
         this.userRepository = userRepository;
         this.friendshipRepository = friendshipRepository;
         this.conversationRepository = conversationRepository;
@@ -47,6 +54,7 @@ public class MessageServiceImpl implements MessageService {
         this.messageEditHistoryRepository = messageEditHistoryRepository;
         this.fileStorageService = fileStorageService;
         this.sseService = sseService;
+        this.eventPublisher=eventPublisher;
     }
 
     @Override
@@ -165,6 +173,9 @@ public class MessageServiceImpl implements MessageService {
                         .build()
         );
 
+         // THEN - On vérifie qu'un log d'action SENT a été créé
+        eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.SENT));
+
         // 6. Retour de la réponse complète
         return toResponse(savedMessage, savedAttachment);
     }
@@ -233,6 +244,7 @@ public class MessageServiceImpl implements MessageService {
         MessageEntity updatedMessage = messageRepository.save(message);
 
         AttachmentEntity attachment = attachmentRepository.findByMessage(updatedMessage).orElse(null);
+        eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.EDITED));
 
         return toResponse(updatedMessage, attachment);
     }
@@ -258,6 +270,8 @@ public class MessageServiceImpl implements MessageService {
             fileStorageService.delete(attachment.getUrl());
             attachmentRepository.delete(attachment);
         });
+        eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
+
     }
 
     @Override
@@ -278,6 +292,8 @@ public class MessageServiceImpl implements MessageService {
 
         fileStorageService.delete(attachment.getUrl());
         attachmentRepository.delete(attachment);
+        eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
+
     }
 
     private MessageResponse toResponse(MessageEntity entity, AttachmentEntity attachmentEntity) {

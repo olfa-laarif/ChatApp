@@ -11,6 +11,7 @@ import olfa.laarif.chatapp.repository.ConversationRepository;
 import olfa.laarif.chatapp.repository.UserRepository;
 import olfa.laarif.chatapp.service.ConversationService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,7 +26,8 @@ public class ConversationServiceImpl implements ConversationService {
         this.userRepository=userRepository;
     }
 
-
+    @Transactional(readOnly = true)
+    @Override
     public List<ConversationResponse> getUserConversationsOrderedByLastMessage(String phoneNumber) {
         UserEntity user = userRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new UserNotFoundException(
@@ -35,13 +37,19 @@ public class ConversationServiceImpl implements ConversationService {
         List<ConversationEntity> conversations = conversationRepository.findAllConversationsByUserIdOrderByLastMessageAt(userId);
 
         return conversations.stream().map(conv -> {
-            String chatName="";
-            String targetId = null; // Groups don't have a single "friend ID", so we keep it null or set to group ID
+
+            List<String> targetId  ; // Groups don't have a single "friend ID", so we keep it null or set to group ID
 
             if (conv.getConversationType() == ConversationType.GROUP) {
                 // Case 1: It's a group chat, use the group title
                // chatName = conv.get();
-                targetId = conv.getId(); // Or leave as null depending on your frontend requirement
+                targetId = conv.getMembers().stream()
+                        .map(ConversationMemberEntity::getUser)
+                        .filter(u -> !u.getId().equals(userId)).map(
+                            UserEntity::getPhoneNumber
+                        ).toList();
+
+
             } else {
                 // Case 2: It's a 1-to-1 Direct Message, find the OTHER user
                 UserEntity friend = conv.getMembers().stream()
@@ -50,15 +58,15 @@ public class ConversationServiceImpl implements ConversationService {
                         .findFirst()
                         .orElse(user); // Fallback to self if something is wrong
 
-                chatName = friend.getUsername();
-                targetId = friend.getId();
-            }
 
+                targetId = (List.of(friend.getPhoneNumber()));
+            }
+            String lastMessage = conv.getMessages().get(0).getContent();
             return new ConversationResponse(
                     conv.getId(),
                     conv.getLastMessageAt(),
                     targetId,
-                    chatName
+                    lastMessage
             );
         }).collect(Collectors.toList());
     }
