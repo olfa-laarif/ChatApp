@@ -182,3 +182,69 @@ Content-Type: application/json
   "receiverPhoneNumber": "{{phoneB}}",
   "content": "Pas de token"
 }
+
+### 18. Lucas envoie un message avec Texte ET Image (expects 201)
+# Note : Place un fichier nommé "photo.png" dans le même dossier que ce fichier .http
+POST {{host}}/api/messages
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="receiverPhoneNumber"
+
+{{phoneB}}
+--boundary
+Content-Disposition: form-data; name="content"
+
+Voici la photo des vacances !
+--boundary
+Content-Disposition: form-data; name="file"; filename="photo.png"
+Content-Type: image/png
+
+< photo.png
+--boundary--
+
+### 19. Camille envoie un document PDF SEUL sans texte (expects 201)
+# Note : Place un fichier nommé "document.pdf" dans le même dossier que ce fichier .http
+POST {{host}}/api/messages
+Authorization: Bearer {{tokenB}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="receiverPhoneNumber"
+
+{{phoneA}}
+--boundary
+Content-Disposition: form-data; name="file"; filename="document.pdf"
+Content-Type: application/pdf
+
+< document.pdf
+--boundary--
+
+### 20. Lucas tente d'envoyer un format interdit (ex: un fichier .txt - expects 400)
+# Note : Place un fichier nommé "notes.txt" dans le même dossier que ce fichier .http
+POST {{host}}/api/messages
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="receiverPhoneNumber"
+
+{{phoneB}}
+--boundary
+Content-Disposition: form-data; name="file"; filename="notes.txt"
+Content-Type: text/plain
+
+< notes.txt
+--boundary--
+
+### 21. Lucas envoie un message MULTIPART vide (Sans texte ET sans fichier - expects 400)
+POST {{host}}/api/messages
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="receiverPhoneNumber"
+
+{{phoneB}}
+--boundary--

@@ -2,12 +2,13 @@ package olfa.laarif.chatapp.controller;
 
 import jakarta.validation.Valid;
 import olfa.laarif.chatapp.dto.MessageResponse;
-import olfa.laarif.chatapp.dto.SendMessageRequest;
 import olfa.laarif.chatapp.service.MessageService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,12 +22,26 @@ public class MessageController {
         this.messageService = messageService;
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MessageResponse> sendMessage(
             Authentication authentication,
-            @Valid @RequestBody SendMessageRequest request) {
+            @RequestParam("receiverPhoneNumber") String receiverPhoneNumber,
+            @RequestParam(value = "content", required = false) String content,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+
         String senderPhoneNumber = authentication.getName();
-        MessageResponse response = messageService.sendMessage(senderPhoneNumber, request);
+
+        // Validation manuelle minimale
+        if (receiverPhoneNumber == null || receiverPhoneNumber.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Un message ne peut pas être totalement vide (il faut du texte ou un fichier)
+        if ((content == null || content.isBlank()) && (file == null || file.isEmpty())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        MessageResponse response = messageService.sendMessage(senderPhoneNumber, receiverPhoneNumber, content, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -39,7 +54,4 @@ public class MessageController {
                 messageService.getConversationMessages(userPhoneNumber, conversationId)
         );
     }
-
-
-
 }
