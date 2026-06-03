@@ -22,6 +22,7 @@ public class MessageServiceImpl implements MessageService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final AttachmentRepository attachmentRepository;
+    private final MessageEditHistoryRepository messageEditHistoryRepository;
     private final FileStorageService fileStorageService;
 
     public MessageServiceImpl(UserRepository userRepository,
@@ -29,12 +30,14 @@ public class MessageServiceImpl implements MessageService {
                               ConversationRepository conversationRepository,
                               MessageRepository messageRepository,
                               AttachmentRepository attachmentRepository,
+                              MessageEditHistoryRepository messageEditHistoryRepository,
                               FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.friendshipRepository = friendshipRepository;
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.attachmentRepository = attachmentRepository;
+        this.messageEditHistoryRepository = messageEditHistoryRepository;
         this.fileStorageService = fileStorageService;
     }
 
@@ -148,6 +151,89 @@ public class MessageServiceImpl implements MessageService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public MessageResponse editMessage(String userPhoneNumber, String messageId, String newContent) {
+        if (newContent == null || newContent.isBlank()) {
+            throw new IllegalArgumentException("Message content cannot be empty");
+        }
+        if (newContent.length() > 500) {
+            throw new IllegalArgumentException("Message exceeds maximum limit of 500 characters");
+        }
+
+        UserEntity user = userRepository.findByPhoneNumber(userPhoneNumber)
+                .orElseThrow(() -> new UserNotFoundException("Authenticated user not found: " + userPhoneNumber));
+
+        MessageEntity message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new MessageNotFoundException("Message not found: " + messageId));
+
+        if (!message.getSender().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("You can only edit your own messages");
+        }
+
+        if (message.getContent().equals(newContent)) {
+            AttachmentEntity attachment = attachmentRepository.findByMessage(message).orElse(null);
+            return toResponse(message, attachment);
+        }
+
+        MessageEditHistoryEntity history = MessageEditHistoryEntity.builder()
+                .message(message)
+                .originalContent(message.getContent())
+                .newContent(newContent)
+                .build();
+        messageEditHistoryRepository.save(history);
+
+        message.setContent(newContent);
+        MessageEntity updatedMessage = messageRepository.save(message);
+
+        AttachmentEntity attachment = attachmentRepository.findByMessage(updatedMessage).orElse(null);
+
+        return toResponse(updatedMessage, attachment);
+    }
+
+    @Override
+    @Transactional
+    public void deleteMessage(String userPhoneNumber, String messageId) {
+        UserEntity user = userRepository.findByPhoneNumber(userPhoneNumber)
+                .orElseThrow(() -> new UserNotFoundException("Authenticated user not found: " + userPhoneNumber));
+
+        MessageEntity message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new MessageNotFoundException("Message not found: " + messageId));
+
+        if (!message.getSender().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("You can only delete your own messages");
+        }
+
+        message.setDeleted(true);
+        message.setContent("Ce message a été supprimé.");
+        messageRepository.save(message);
+
+        attachmentRepository.findByMessage(message).ifPresent(attachment -> {
+            fileStorageService.delete(attachment.getUrl());
+            attachmentRepository.delete(attachment);
+        });
+    }
+
+    @Override
+    @Transactional
+    public void deleteAttachment(String userPhoneNumber, String messageId) {
+        UserEntity user = userRepository.findByPhoneNumber(userPhoneNumber)
+                .orElseThrow(() -> new UserNotFoundException("Authenticated user not found: " + userPhoneNumber));
+
+        MessageEntity message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new MessageNotFoundException("Message not found: " + messageId));
+
+        if (!message.getSender().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("You can only delete files from your own messages");
+        }
+
+        AttachmentEntity attachment = attachmentRepository.findByMessage(message)
+                .orElseThrow(() -> new IllegalArgumentException("No attachment found for this message"));
+
+        fileStorageService.delete(attachment.getUrl());
+        attachmentRepository.delete(attachment);
+    }
+
     private MessageResponse toResponse(MessageEntity entity, AttachmentEntity attachmentEntity) {
         AttachmentResponse attachmentResponse = null;
         if (attachmentEntity != null) {
@@ -157,7 +243,7 @@ public class MessageServiceImpl implements MessageService {
                     attachmentEntity.getUrl(),
                     attachmentEntity.getMimeType(),
                     attachmentEntity.getType(),
-                    attachmentEntity.getSizeBytes()
+                    attachmentEntity.getSizeBytes() // Correction faite ici également (g minuscule)
             );
         }
 
