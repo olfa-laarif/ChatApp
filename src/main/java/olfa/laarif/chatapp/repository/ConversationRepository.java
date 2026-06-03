@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -21,4 +22,9 @@ public interface ConversationRepository extends JpaRepository<ConversationEntity
             @Param("userA") UserEntity userA,
             @Param("userB") UserEntity userB
     );
+
+    @Query("SELECT c FROM ConversationEntity c " +
+            "WHERE c.user1.id = :userId OR c.user2.id = :userId " +
+            "ORDER BY c.lastMessageAt DESC")
+    List<ConversationEntity> findAllConversationsByUserIdOrderByLastMessageBy(@Param("userId") String userId);
 }
