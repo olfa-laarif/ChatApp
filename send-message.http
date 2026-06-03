@@ -1,0 +1,184 @@
+### Variables
+@host = http://localhost:8080
+@phoneA = +33611111111
+@phoneB = +33622222222
+
+### ─────────────────────────────────────────
+### SETUP — Créer les utilisateurs
+### ─────────────────────────────────────────
+
+### 1. Register user A
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Lucas",
+  "password": "test123",
+  "phoneNumber": "{{phoneA}}",
+  "email": "lucas.msg@test.com"
+}
+
+### 2. Register user B
+POST {{host}}/users/register
+Content-Type: application/json
+
+{
+  "username": "Camille",
+  "password": "test123",
+  "phoneNumber": "{{phoneB}}",
+  "email": "camille.msg@test.com"
+}
+
+### ─────────────────────────────────────────
+### SETUP — Login
+### ─────────────────────────────────────────
+
+### 3. Login as Lucas
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneA}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("token", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### 4. Login as Camille
+POST {{host}}/users/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phoneB}}",
+  "password": "test123"
+}
+
+> {%
+    client.global.set("tokenB", response.body.trim().replace(/^"|"$/g, ""));
+%}
+
+### ─────────────────────────────────────────
+### SETUP — Friendship
+### ─────────────────────────────────────────
+
+### 5. Lucas envoie une demande d'ami à Camille
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phoneNumber": "{{phoneB}}"
+}
+
+### 6. Camille récupère ses demandes reçues (capture friendshipId)
+GET {{host}}/api/friendships/received
+Authorization: Bearer {{tokenB}}
+
+> {%
+    client.global.set("friendshipId", response.body[0].id);
+%}
+
+### 7. Camille accepte la demande
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{tokenB}}
+
+### 8. Lucas envoie un message à Camille (expects 201)
+POST {{host}}/api/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "receiverPhoneNumber": "{{phoneB}}",
+  "content": "Salut Camille !"
+}
+
+> {%
+    client.global.set("conversationId", response.body.conversationId);
+%}
+
+### 9. Camille répond à Lucas (expects 201 — même conversationId)
+POST {{host}}/api/messages
+Content-Type: application/json
+Authorization: Bearer {{tokenB}}
+
+{
+  "receiverPhoneNumber": "{{phoneA}}",
+  "content": "Salut Lucas, ça va ?"
+}
+
+### 10. Lucas lit les messages de la conversation (expects 200 avec 2 messages)
+GET {{host}}/api/messages/conversation/{{conversationId}}
+Authorization: Bearer {{token}}
+
+### ─────────────────────────────────────────
+### CAS LIMITES
+### ─────────────────────────────────────────
+
+### 11. Message exactement 500 caractères (expects 201)
+POST {{host}}/api/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "receiverPhoneNumber": "{{phoneB}}",
+  "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### 12. Message 501 caractères (expects 400 - validation error)
+POST {{host}}/api/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "receiverPhoneNumber": "{{phoneB}}",
+  "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### 13. Message vide (expects 400 - validation error)
+POST {{host}}/api/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "receiverPhoneNumber": "{{phoneB}}",
+  "content": ""
+}
+
+### ─────────────────────────────────────────
+### CAS D'ERREUR
+### ─────────────────────────────────────────
+
+### 14. Envoyer à un numéro inexistant (expects 404)
+POST {{host}}/api/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "receiverPhoneNumber": "+33699999999",
+  "content": "Ce message ne partira pas"
+}
+
+### 15. Envoyer à quelqu'un qui n'est pas ami (expects 404)
+POST {{host}}/api/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "receiverPhoneNumber": "+33600000001",
+  "content": "On n'est pas amis"
+}
+
+### 16. Lire une conversation qui n'existe pas (expects 404)
+GET {{host}}/api/messages/conversation/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+### 17. Sans token (expects 401)
+POST {{host}}/api/messages
+Content-Type: application/json
+
+{
+  "receiverPhoneNumber": "{{phoneB}}",
+  "content": "Pas de token"
+}
