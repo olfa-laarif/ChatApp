@@ -1,6 +1,7 @@
 package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.dto.*;
+import olfa.laarif.chatapp.dto.notification.FileDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.MessageDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.MessageEditedNotification;
 import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
@@ -323,10 +324,27 @@ public class MessageServiceImpl implements MessageService {
         AttachmentEntity attachment = attachmentRepository.findByMessage(message)
                 .orElseThrow(() -> new IllegalArgumentException("No attachment found for this message"));
 
+        String attachmentId = attachment.getId();
+
         fileStorageService.delete(attachment.getUrl());
         attachmentRepository.delete(attachment);
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
 
+        String recipientId = message.getConversation().getMembers().stream()
+                .filter(m -> !m.getUser().getId().equals(user.getId()))
+                .map(m -> m.getUser().getId())
+                .findFirst()
+                .orElseThrow();
+
+        sseService.notifyFileDeleted(
+                recipientId,
+                FileDeletedNotification.builder()
+                        .attachmentId(attachmentId)
+                        .messageId(message.getId())
+                        .conversationId(message.getConversation().getId())
+                        .deletedAt(Instant.now())
+                        .build()
+        );
     }
 
     private MessageResponse toResponse(MessageEntity entity, AttachmentEntity attachmentEntity) {
