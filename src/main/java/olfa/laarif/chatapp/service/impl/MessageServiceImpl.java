@@ -2,6 +2,7 @@ package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.dto.*;
 import olfa.laarif.chatapp.dto.notification.MessageDeletedNotification;
+import olfa.laarif.chatapp.dto.notification.MessageEditedNotification;
 import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.entity.*;
 import olfa.laarif.chatapp.entity.listener.MessageActionEvent;
@@ -246,6 +247,22 @@ public class MessageServiceImpl implements MessageService {
 
         AttachmentEntity attachment = attachmentRepository.findByMessage(updatedMessage).orElse(null);
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.EDITED));
+
+        String recipientId = updatedMessage.getConversation().getMembers().stream()
+                .filter(m -> !m.getUser().getId().equals(user.getId()))
+                .map(m -> m.getUser().getId())
+                .findFirst()
+                .orElseThrow();
+
+        sseService.notifyMessageEdited(
+                recipientId,
+                MessageEditedNotification.builder()
+                        .messageId(updatedMessage.getId())
+                        .conversationId(updatedMessage.getConversation().getId())
+                        .newContent(updatedMessage.getContent())
+                        .editedAt(Instant.now())
+                        .build()
+        );
 
         return toResponse(updatedMessage, attachment);
     }
