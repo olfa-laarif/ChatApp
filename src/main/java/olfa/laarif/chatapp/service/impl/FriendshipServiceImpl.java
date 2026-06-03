@@ -3,6 +3,7 @@ package olfa.laarif.chatapp.service.impl;
 import olfa.laarif.chatapp.dto.FriendshipRequest;
 import olfa.laarif.chatapp.dto.FriendshipResponse;
 import olfa.laarif.chatapp.dto.UserResponse;
+import olfa.laarif.chatapp.dto.notification.FriendRequestAcceptedNotification;
 import olfa.laarif.chatapp.dto.notification.FriendRequestNotification;
 import olfa.laarif.chatapp.entity.FriendshipEntity;
 import olfa.laarif.chatapp.entity.UserEntity;
@@ -136,7 +137,21 @@ public class FriendshipServiceImpl implements FriendshipService {
         }
 
         friendship.setStatus(newStatus);
-        return toResponse(friendshipRepository.save(friendship));
+        FriendshipEntity saved = friendshipRepository.saveAndFlush(friendship);
+
+        if (newStatus == FriendshipStatus.ACCEPTED) {
+            sseService.notifyFriendRequestAccepted(
+                    saved.getRequester().getId(),
+                    FriendRequestAcceptedNotification.builder()
+                            .requestId(saved.getId())
+                            .accepterId(receiver.getId())
+                            .accepterUsername(receiver.getUsername())
+                            .acceptedAt(saved.getUpdatedAt())
+                            .build()
+            );
+        }
+
+        return toResponse(saved);
     }
 
     @Override
