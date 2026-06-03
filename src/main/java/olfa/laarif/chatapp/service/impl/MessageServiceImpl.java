@@ -1,12 +1,14 @@
 package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.dto.*;
+import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.entity.*;
 import olfa.laarif.chatapp.enums.*;
 import olfa.laarif.chatapp.exception.*;
 import olfa.laarif.chatapp.repository.*;
 import olfa.laarif.chatapp.service.FileStorageService;
 import olfa.laarif.chatapp.service.MessageService;
+import olfa.laarif.chatapp.service.SseService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +26,7 @@ public class MessageServiceImpl implements MessageService {
     private final AttachmentRepository attachmentRepository;
     private final MessageEditHistoryRepository messageEditHistoryRepository;
     private final FileStorageService fileStorageService;
+    private final SseService sseService;
 
     public MessageServiceImpl(UserRepository userRepository,
                               FriendshipRepository friendshipRepository,
@@ -31,7 +34,8 @@ public class MessageServiceImpl implements MessageService {
                               MessageRepository messageRepository,
                               AttachmentRepository attachmentRepository,
                               MessageEditHistoryRepository messageEditHistoryRepository,
-                              FileStorageService fileStorageService) {
+                              FileStorageService fileStorageService,
+                              SseService sseService) { // Le paramètre sseService est maintenant bien placé ici
         this.userRepository = userRepository;
         this.friendshipRepository = friendshipRepository;
         this.conversationRepository = conversationRepository;
@@ -39,6 +43,7 @@ public class MessageServiceImpl implements MessageService {
         this.attachmentRepository = attachmentRepository;
         this.messageEditHistoryRepository = messageEditHistoryRepository;
         this.fileStorageService = fileStorageService;
+        this.sseService = sseService;
     }
 
     @Override
@@ -87,7 +92,7 @@ public class MessageServiceImpl implements MessageService {
         AttachmentEntity savedAttachment = null;
         if (file != null && !file.isEmpty()) {
 
-            // Validation de la taille : 20 Mo max (20 * 1024 * 1024 octets)
+            // Validation de la taille : 20 Mo max
             long maxBytes = 20971520;
             if (file.getSize() > maxBytes) {
                 throw new IllegalArgumentException("File size exceeds maximum limit of 20 MB");
@@ -120,6 +125,20 @@ public class MessageServiceImpl implements MessageService {
             savedAttachment = attachmentRepository.save(attachment);
         }
 
+        // 5. Notification en temps réel (SSE)
+        sseService.notifyNewMessage(
+                receiver.getId(),
+                NewMessageNotification.builder()
+                        .messageId(savedMessage.getId())
+                        .conversationId(conversation.getId())
+                        .senderUsername(sender.getUsername())
+                        .senderPhoneNumber(sender.getPhoneNumber())
+                        .contentPreview(savedMessage.getContent())
+                        .sentAt(savedMessage.getCreatedAt())
+                        .build()
+        );
+
+        // 6. Retour de la réponse complète
         return toResponse(savedMessage, savedAttachment);
     }
 
@@ -143,7 +162,6 @@ public class MessageServiceImpl implements MessageService {
                 .findByConversationOrderByCreatedAtAsc(conversation)
                 .stream()
                 .map(msg -> {
-                    // Recherche de la pièce jointe associée à ce message
                     AttachmentEntity attachment = attachmentRepository.findByMessage(msg)
                             .orElse(null);
                     return toResponse(msg, attachment);
@@ -243,7 +261,7 @@ public class MessageServiceImpl implements MessageService {
                     attachmentEntity.getUrl(),
                     attachmentEntity.getMimeType(),
                     attachmentEntity.getType(),
-                    attachmentEntity.getSizeBytes() // Correction faite ici également (g minuscule)
+                    attachmentEntity.getSizeBytes()
             );
         }
 
