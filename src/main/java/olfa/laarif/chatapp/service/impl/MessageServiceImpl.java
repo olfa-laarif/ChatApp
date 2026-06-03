@@ -10,11 +10,13 @@ import olfa.laarif.chatapp.enums.FriendshipStatus;
 import olfa.laarif.chatapp.exception.ConversationNotFoundException;
 import olfa.laarif.chatapp.exception.FriendshipNotFoundException;
 import olfa.laarif.chatapp.exception.UserNotFoundException;
+import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.repository.ConversationRepository;
 import olfa.laarif.chatapp.repository.FriendshipRepository;
 import olfa.laarif.chatapp.repository.MessageRepository;
 import olfa.laarif.chatapp.repository.UserRepository;
 import olfa.laarif.chatapp.service.MessageService;
+import olfa.laarif.chatapp.service.SseService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,15 +32,18 @@ public class MessageServiceImpl implements MessageService {
     private final FriendshipRepository friendshipRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final SseService sseService;
 
     public MessageServiceImpl(UserRepository userRepository,
                               FriendshipRepository friendshipRepository,
                               ConversationRepository conversationRepository,
-                              MessageRepository messageRepository) {
+                              MessageRepository messageRepository,
+                              SseService sseService) {
         this.userRepository = userRepository;
         this.friendshipRepository = friendshipRepository;
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
+        this.sseService = sseService;
     }
 
     @Override
@@ -83,6 +88,19 @@ public class MessageServiceImpl implements MessageService {
                 .build();
 
         MessageEntity saved = messageRepository.save(message);
+
+        sseService.notifyNewMessage(
+                receiver.getId(),
+                NewMessageNotification.builder()
+                        .messageId(saved.getId())
+                        .conversationId(conversation.getId())
+                        .senderUsername(sender.getUsername())
+                        .senderPhoneNumber(sender.getPhoneNumber())
+                        .contentPreview(saved.getContent())
+                        .sentAt(saved.getCreatedAt())
+                        .build()
+        );
+
         return toResponse(saved);
     }
 
