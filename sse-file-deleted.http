@@ -82,34 +82,57 @@ Authorization: Bearer {{tokenAlice}}
     }
 %}
 
-### 7. Alice accepte la demande de Bob (expects 200)
+### 7. Alice accepte la demande de Bob (expects 200, conv DIRECT auto-créée)
 POST {{host}}/api/friendships/{{friendshipId}}/accept
 Authorization: Bearer {{tokenAlice}}
 
+### 8. Bob récupère le conversationId
+GET {{host}}/api/conversations
+Authorization: Bearer {{tokenBob}}
+
+> {%
+    client.global.set("conversationId", response.body[0].conversationId);
+%}
+
 ### ─────────────────────────────────────────
-### SETUP — Bob envoie un message avec un fichier à Alice
-###
-###curl avec un vrai fichier PDF/image
+### SETUP — Bob envoie un message avec un PDF à Alice
 ### ─────────────────────────────────────────
 
-### 8. Bob envoie un message avec un fichier joint (capture messageId)
-### curl.exe -X POST http://localhost:8080/api/messages
-###   -H "Authorization: Bearer <tokenBob>"
-###   -F "receiverPhoneNumber=+33611111111"
-###   -F "content=Voici un fichier"
-###   -F "file=@chemin/vers/ton/fichier.pdf"
-###
-### Note l'ID du message dans la réponse et colle-le dans messageId ci-dessous
+### 9. Bob envoie un message avec document.pdf (expects 201, capture messageId)
+POST {{host}}/api/messages
+Authorization: Bearer {{tokenBob}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
+
+{{conversationId}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
+
+Voici un fichier
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="document.pdf"
+Content-Type: application/pdf
+
+< ./document.pdf
+--WebAppBoundary--
+
+> {%
+    if (response.body && response.body.id) {
+        client.global.set("messageId", response.body.id);
+    }
+%}
 
 ### ─────────────────────────────────────────
 ### SCÉNARIO A — Alice connectée → event SSE FILE_DELETED reçu
 ###
-### ⚠ AVANT d'exécuter la requête 9, ouvrir un terminal et lancer :
+### ⚠ AVANT d'exécuter la requête 10, ouvrir un terminal et lancer :
 ###   curl.exe -N -H "Authorization: Bearer <tokenAlice>" http://localhost:8080/sse/subscribe
 ###   → Laisser le terminal ouvert, les events s'affichent en temps réel
 ### ─────────────────────────────────────────
 
-### 9. Bob supprime le fichier joint du message (expects 200)
+### 10. Bob supprime le fichier joint du message (expects 200)
 ### → Résultat attendu : event FILE_DELETED dans le terminal curl d'Alice
 ### → Le message reste visible mais sans pièce jointe
 DELETE {{host}}/api/messages/{{messageId}}/attachment

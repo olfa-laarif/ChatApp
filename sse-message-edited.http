@@ -82,27 +82,36 @@ Authorization: Bearer {{tokenAlice}}
     }
 %}
 
-### 7. Alice accepte la demande de Bob (expects 200)
+### 7. Alice accepte la demande de Bob (expects 200, conv DIRECT auto-créée)
 POST {{host}}/api/friendships/{{friendshipId}}/accept
 Authorization: Bearer {{tokenAlice}}
+
+### 8. Bob récupère le conversationId
+GET {{host}}/api/conversations
+Authorization: Bearer {{tokenBob}}
+
+> {%
+    client.global.set("conversationId", response.body[0].conversationId);
+%}
 
 ### ─────────────────────────────────────────
 ### SETUP — Bob envoie un message à Alice
 ### ─────────────────────────────────────────
 
-### 8. Bob envoie un message à Alice (expects 201, capture messageId)
+### 9. Bob envoie un message à Alice (expects 201, capture messageId)
 POST {{host}}/api/messages
-Content-Type: multipart/form-data; boundary=boundary
+Authorization: Bearer {{tokenBob}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
 
---boundary
-Content-Disposition: form-data; name="receiverPhoneNumber"
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
 
-{{phoneAlice}}
---boundary
+{{conversationId}}
+--WebAppBoundary
 Content-Disposition: form-data; name="content"
 
 Salut Alice, je vais modifier ce message !
---boundary--
+--WebAppBoundary--
 
 > {%
     if (response.body && response.body.id) {
@@ -113,12 +122,21 @@ Salut Alice, je vais modifier ce message !
 ### ─────────────────────────────────────────
 ### SCÉNARIO A — Alice connectée → event SSE MESSAGE_EDITED reçu
 ###
-### ⚠ AVANT d'exécuter la requête 9, ouvrir un terminal et lancer :
+### ⚠ AVANT d'exécuter la requête 10, ouvrir un terminal et lancer :
 ###   curl.exe -N -H "Authorization: Bearer <tokenAlice>" http://localhost:8080/sse/subscribe
 ###   → Laisser le terminal ouvert, les events s'affichent en temps réel
+###
+### Alternative IntelliJ : lance la requête ci-dessous, le panneau de réponse
+### reste en streaming. Garde-le ouvert pendant que tu joues la #10.
 ### ─────────────────────────────────────────
 
-### 9. Bob modifie son message (expects 200)
+### Alice ouvre sa connexion SSE (streaming, laisse ouvert)
+GET {{host}}/sse/subscribe
+Authorization: Bearer {{tokenAlice}}
+Accept: text/event-stream
+
+
+### 10. Bob modifie son message (expects 200)
 ### → Résultat attendu : event MESSAGE_EDITED dans le terminal curl d'Alice
 PUT {{host}}/api/messages/{{messageId}}
 Content-Type: application/json
@@ -132,7 +150,7 @@ Authorization: Bearer {{tokenBob}}
 ### CAS LIMITE — Modifier avec le même contenu (pas de notification)
 ### ─────────────────────────────────────────
 
-### 10. Bob modifie avec le même contenu (expects 200, pas de notif car contenu identique)
+### 11. Bob modifie avec le même contenu (expects 200, pas de notif car contenu identique)
 PUT {{host}}/api/messages/{{messageId}}
 Content-Type: application/json
 Authorization: Bearer {{tokenBob}}
