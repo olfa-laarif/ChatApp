@@ -1,4 +1,4 @@
-package olfa.laarif.chatapp.entity.listener;
+package olfa.laarif.chatapp.entity.listener.event;
 
 import lombok.Getter;
 import olfa.laarif.chatapp.entity.MessageEntity;

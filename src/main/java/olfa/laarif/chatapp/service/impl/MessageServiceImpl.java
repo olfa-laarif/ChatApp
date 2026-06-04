@@ -6,7 +6,7 @@ import olfa.laarif.chatapp.dto.notification.MessageDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.MessageEditedNotification;
 import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.entity.*;
-import olfa.laarif.chatapp.entity.listener.MessageActionEvent;
+import olfa.laarif.chatapp.entity.listener.event.MessageActionEvent;
 import olfa.laarif.chatapp.enums.*;
 import olfa.laarif.chatapp.exception.*;
 import olfa.laarif.chatapp.repository.*;

@@ -1,6 +1,7 @@
 package olfa.laarif.chatapp.entity.listener;
 
 import olfa.laarif.chatapp.entity.*;
+import olfa.laarif.chatapp.entity.listener.event.MessageActionEvent;
 import olfa.laarif.chatapp.enums.MessageAction;
 import olfa.laarif.chatapp.repository.ConversationRepository;
 import olfa.laarif.chatapp.repository.MessageLogRepository;
@@ -15,9 +16,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 import static java.time.Instant.now;
