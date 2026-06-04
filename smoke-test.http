@@ -1,0 +1,227 @@
+### Smoke test — one happy-path request per story.
+### Self-contained: re-creates its own users so you can run this file in isolation
+### after a fresh `docker compose down -v && docker compose up -d`.
+
+
+### Variables
+@host = http://localhost:8080
+@phoneAlice   = +33611111111
+@phoneBob = +33622222222
+@phoneCharlie    = +33633333333
+@phoneAdmin   = +33677777777
+
+### ─────────────────────────────────────────
+### REGISTER + LOGIN (4 users)
+### ─────────────────────────────────────────
+
+### 1. Register Alice
+POST {{host}}/users/register
+Content-Type: application/json
+
+{ "username": "Alice",   "password": "test123", "phoneNumber": "{{phoneAlice}}",   "email": "alice@test.com" }
+
+### 2. Register Bob
+POST {{host}}/users/register
+Content-Type: application/json
+
+{ "username": "Bob", "password": "test123", "phoneNumber": "{{phoneBob}}", "email": "bob@test.com" }
+
+### 3. Register Charlie
+POST {{host}}/users/register
+Content-Type: application/json
+
+{ "username": "Charlie",    "password": "test123", "phoneNumber": "{{phoneCharlie}}",    "email": "charlie@test.com" }
+
+### 4. Bootstrap admin
+POST {{host}}/users/register/admin
+Content-Type: application/json
+
+{ "username": "SuperAdmin", "password": "admin123", "phoneNumber": "{{phoneAdmin}}", "email": "admin@chatapp.com" }
+
+### 5. Login Alice → token
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "phoneNumber": "{{phoneAlice}}", "password": "test123" }
+
+> {% client.global.set("tokenAlice", response.body.trim().replace(/^"|"$/g, "")); %}
+
+### 6. Login Bob → tokenBob
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "phoneNumber": "{{phoneBob}}", "password": "test123" }
+
+> {% client.global.set("tokenBob", response.body.trim().replace(/^"|"$/g, "")); %}
+
+### 7. Login Charlie → tokenCharlie
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "phoneNumber": "{{phoneCharlie}}", "password": "test123" }
+
+> {% client.global.set("tokenCharlie", response.body.trim().replace(/^"|"$/g, "")); %}
+
+### 8. Login admin → tokenAdmin
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "phoneNumber": "{{phoneAdmin}}", "password": "admin123" }
+
+> {% client.global.set("tokenAdmin", response.body.trim().replace(/^"|"$/g, "")); %}
+
+### ─────────────────────────────────────────
+### FRIENDSHIP — send, list received, accept (DIRECT conv auto-created)
+### ─────────────────────────────────────────
+
+### 9. Alice sends a friend request to Bob (captures friendshipId)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenAlice}}
+
+{ "phoneNumber": "{{phoneBob}}" }
+
+> {% client.global.set("friendshipId", response.body.id); %}
+
+### 10. Bob accepts → DIRECT conv auto-created
+POST {{host}}/api/friendships/{{friendshipId}}/accept
+Authorization: Bearer {{tokenBob}}
+
+### 11. Alice also befriends Charlie (captures friendshipIdCharlie)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{tokenAlice}}
+
+{ "phoneNumber": "{{phoneCharlie}}" }
+
+> {% client.global.set("friendshipIdCharlie", response.body.id); %}
+
+### 12. Charlie accepts Alice
+POST {{host}}/api/friendships/{{friendshipIdCharlie}}/accept
+Authorization: Bearer {{tokenCharlie}}
+
+### ─────────────────────────────────────────
+### CONVERSATIONS — capture DIRECT id
+### ─────────────────────────────────────────
+
+### 15. Alice lists his conversations (captures the DIRECT conv with Bob)
+GET {{host}}/api/conversations
+Authorization: Bearer {{tokenAlice}}
+
+> {%
+    var direct = response.body.find(c => c.type === "DIRECT" && c.friendUsername === "Bob");
+    if (direct) client.global.set("directConversationId", direct.conversationId);
+%}
+
+### ─────────────────────────────────────────
+### MESSAGING — send text, send file, read, edit, delete, delete attachment
+### ─────────────────────────────────────────
+
+### 16. Alice sends a text message in DIRECT (captures messageId)
+POST {{host}}/api/messages
+Authorization: Bearer {{tokenAlice}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
+
+{{directConversationId}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
+
+Hello Bob!
+--WebAppBoundary--
+
+> {% client.global.set("messageId", response.body.id); %}
+
+### 17. Alice sends an image (captures messageWithFileId)
+POST {{host}}/api/messages
+Authorization: Bearer {{tokenAlice}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
+
+{{directConversationId}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
+
+A photo for you
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="photo.png"
+Content-Type: image/png
+
+< ./photo.png
+--WebAppBoundary--
+
+> {% client.global.set("messageWithFileId", response.body.id); %}
+
+### 18. Bob reads the conversation
+GET {{host}}/api/messages/conversation/{{directConversationId}}
+Authorization: Bearer {{tokenBob}}
+
+### 19. Alice edits his text message
+PUT {{host}}/api/messages/{{messageId}}
+Content-Type: application/json
+Authorization: Bearer {{tokenAlice}}
+
+{ "content": "Hello Bob! (edited)" }
+
+### 20. Alice deletes his text message
+DELETE {{host}}/api/messages/{{messageId}}
+Authorization: Bearer {{tokenAlice}}
+
+### 21. Alice removes just the attachment of the photo message
+DELETE {{host}}/api/messages/{{messageWithFileId}}/attachment
+Authorization: Bearer {{tokenAlice}}
+
+### ─────────────────────────────────────────
+### GROUPS — create + send a message inside
+### ─────────────────────────────────────────
+
+### 22. Alice creates a group with Bob and Charlie
+POST {{host}}/api/conversations
+Content-Type: application/json
+Authorization: Bearer {{tokenAlice}}
+
+{ "name": "Demo group", "memberPhoneNumbers": ["{{phoneBob}}", "{{phoneCharlie}}"] }
+
+> {% client.global.set("groupConversationId", response.body.conversationId); %}
+
+### 23. Alice sends a message in the group
+POST {{host}}/api/messages
+Authorization: Bearer {{tokenAlice}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
+
+{{groupConversationId}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
+
+Hi team!
+--WebAppBoundary--
+
+### 24. Charlie reads the group conversation (should see Alice's message)
+GET {{host}}/api/messages/conversation/{{groupConversationId}}
+Authorization: Bearer {{tokenCharlie}}
+
+### ─────────────────────────────────────────
+### ADMIN — message logs, file logs, role enforcement
+### ─────────────────────────────────────────
+
+### 25. Admin reads message logs (expects 200, ≥ 1 entry)
+GET {{host}}/api/v1/admin/logs/messages
+Authorization: Bearer {{tokenAdmin}}
+
+### 26. Admin reads file logs (expects 200, 1 SENT + 1 DELETED for the photo)
+GET {{host}}/api/v1/admin/logs/files
+Authorization: Bearer {{tokenAdmin}}
+
+### 27. Regular user hitting admin route (expects 403)
+GET {{host}}/api/v1/admin/logs/messages
+Authorization: Bearer {{tokenAlice}}
+
+### 28. No token (expects 401)
+GET {{host}}/api/v1/admin/logs/messages

@@ -1,3 +1,7 @@
+### Friendship flow — full coverage (send, accept, decline, cancel) with edge cases.
+### Uses an isolated phone namespace (+33600000001..04) so it can run regardless
+### of the other .http files. Reset friendships table between full runs if needed.
+
 ### Variables
 @host = http://localhost:8080
 @phoneA = +33600000001
@@ -5,261 +9,184 @@
 @phoneC = +33600000003
 @phoneD = +33600000004
 
-### 1. Register user A
+### ─────────────────────────────────────────
+### SETUP — register 4 users + login all of them
+### ─────────────────────────────────────────
+
+### 1. Register A (olfa)
 POST {{host}}/users/register
 Content-Type: application/json
 
-{
-  "username": "olfa",
-  "password": "test123",
-  "phoneNumber": "{{phoneA}}",
-  "email": "olfa@test.com"
-}
+{ "username": "olfa",  "password": "test123", "phoneNumber": "{{phoneA}}", "email": "olfa@test.com" }
 
-### 2. Register user B
+### 2. Register B (alice)
 POST {{host}}/users/register
 Content-Type: application/json
 
-{
-  "username": "alice",
-  "password": "test123",
-  "phoneNumber": "{{phoneB}}",
-  "email": "alice@test.com"
-}
+{ "username": "alice", "password": "test123", "phoneNumber": "{{phoneB}}", "email": "alice@test.com" }
 
-### 3. Login as user A (stores token in {{token}})
+### 3. Register C (bob)
+POST {{host}}/users/register
+Content-Type: application/json
+
+{ "username": "bob",   "password": "test123", "phoneNumber": "{{phoneC}}", "email": "bob@test.com" }
+
+### 4. Register D (dan)
+POST {{host}}/users/register
+Content-Type: application/json
+
+{ "username": "dan",   "password": "test123", "phoneNumber": "{{phoneD}}", "email": "dan@test.com" }
+
+### 5. Login A → token
 POST {{host}}/users/login
 Content-Type: application/json
 
-{
-  "phoneNumber": "{{phoneA}}",
-  "password": "test123"
-}
+{ "phoneNumber": "{{phoneA}}", "password": "test123" }
 
-> {%
-    client.global.set("token", response.body);
-%}
+> {% client.global.set("token", response.body); %}
 
-### 4. Send friend request A -> B (expects 201)
+### 6. Login B → tokenB
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "phoneNumber": "{{phoneB}}", "password": "test123" }
+
+> {% client.global.set("tokenB", response.body); %}
+
+### 7. Login C → tokenC
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "phoneNumber": "{{phoneC}}", "password": "test123" }
+
+> {% client.global.set("tokenC", response.body); %}
+
+### 8. Login D → tokenD
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "phoneNumber": "{{phoneD}}", "password": "test123" }
+
+> {% client.global.set("tokenD", response.body); %}
+
+### ─────────────────────────────────────────
+### SEND FRIEND REQUEST — happy path + error cases
+### ─────────────────────────────────────────
+
+### 9. A sends a friend request to B (expects 201, captures friendshipIdAB)
 POST {{host}}/api/friendships
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
-{
-  "phoneNumber": "{{phoneB}}"
-}
+{ "phoneNumber": "{{phoneB}}" }
 
-### 4b. Login as user B then list received requests (expects 200 with 1 PENDING)
-POST {{host}}/users/login
+> {% client.global.set("friendshipIdAB", response.body.id); %}
+
+### 10. Same request again (expects 409 - already pending)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{ "phoneNumber": "{{phoneB}}" }
+
+### 11. Send to self (expects 409)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{ "phoneNumber": "{{phoneA}}" }
+
+### 12. Send to non-existing phone (expects 404)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{ "phoneNumber": "+33699999999" }
+
+### 13. Without token (expects 401)
+POST {{host}}/api/friendships
 Content-Type: application/json
 
-{
-  "phoneNumber": "{{phoneB}}",
-  "password": "test123"
-}
+{ "phoneNumber": "{{phoneB}}" }
 
-> {%
-    client.global.set("tokenB", response.body);
-%}
+### ─────────────────────────────────────────
+### ACCEPT — uses friendshipIdAB; also exercises GET /received
+### ─────────────────────────────────────────
 
-### 4c. GET /api/friendships/received as user B (capture first id in {{friendshipId}})
+### 14. B lists received requests (expects 200 with 1 PENDING)
 GET {{host}}/api/friendships/received
 Authorization: Bearer {{tokenB}}
 
-> {%
-    if (response.body && response.body.length > 0) {
-        client.global.set("friendshipId", response.body[0].id);
-    }
-%}
-
-### 4d. Accept the friend request as user B (expects 200, status ACCEPTED)
-POST {{host}}/api/friendships/{{friendshipId}}/accept
+### 15. B accepts (expects 200, status ACCEPTED)
+POST {{host}}/api/friendships/{{friendshipIdAB}}/accept
 Authorization: Bearer {{tokenB}}
 
-### 4e. Accept again (expects 409 - already processed)
-POST {{host}}/api/friendships/{{friendshipId}}/accept
+### 16. Accept again (expects 409 - already processed)
+POST {{host}}/api/friendships/{{friendshipIdAB}}/accept
 Authorization: Bearer {{tokenB}}
 
-### 4f. Try to accept as user A (the requester, not the receiver) (expects 404)
-POST {{host}}/api/friendships/{{friendshipId}}/accept
+### 17. A (the requester) tries to accept (expects 404 - not receiver)
+POST {{host}}/api/friendships/{{friendshipIdAB}}/accept
 Authorization: Bearer {{token}}
 
-### 4g. Try to accept a non-existing friendship (expects 404)
+### 18. Accept a non-existing friendship (expects 404)
 POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/accept
 Authorization: Bearer {{tokenB}}
 
-### 4h. Register user C (for the decline test)
-POST {{host}}/users/register
-Content-Type: application/json
+### ─────────────────────────────────────────
+### DECLINE — separate flow with user C
+### ─────────────────────────────────────────
 
-{
-  "username": "bob",
-  "password": "test123",
-  "phoneNumber": "{{phoneC}}",
-  "email": "bob@test.com"
-}
-
-### 4i. Login as user C (stores tokenC)
-POST {{host}}/users/login
-Content-Type: application/json
-
-{
-  "phoneNumber": "{{phoneC}}",
-  "password": "test123"
-}
-
-> {%
-    client.global.set("tokenC", response.body);
-%}
-
-
-
-
-### 4j. A sends a friend request to C (expects 201)
+### 19. A sends a friend request to C (expects 201, captures friendshipIdAC)
 POST {{host}}/api/friendships
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
-{
-  "phoneNumber": "{{phoneC}}"
-}
+{ "phoneNumber": "{{phoneC}}" }
 
-### 4k. GET /api/friendships/received as user C (capture first id in {{friendshipIdC}})
-GET {{host}}/api/friendships/received
+> {% client.global.set("friendshipIdAC", response.body.id); %}
+
+### 20. C declines (expects 200, status DECLINED)
+POST {{host}}/api/friendships/{{friendshipIdAC}}/decline
 Authorization: Bearer {{tokenC}}
 
-> {%
-    if (response.body && response.body.length > 0) {
-        client.global.set("friendshipIdC", response.body[0].id);
-    }
-%}
-
-### 4l. Decline the friend request as user C (expects 200, status DECLINED)
-POST {{host}}/api/friendships/{{friendshipIdC}}/decline
+### 21. Decline again (expects 409 - already processed)
+POST {{host}}/api/friendships/{{friendshipIdAC}}/decline
 Authorization: Bearer {{tokenC}}
 
-### 4m. Decline again (expects 409 - already processed)
-POST {{host}}/api/friendships/{{friendshipIdC}}/decline
-Authorization: Bearer {{tokenC}}
-
-### 4n. Try to decline as user A (the requester, not the receiver) (expects 404)
-POST {{host}}/api/friendships/{{friendshipIdC}}/decline
+### 22. A (the requester) tries to decline (expects 404 - not receiver)
+POST {{host}}/api/friendships/{{friendshipIdAC}}/decline
 Authorization: Bearer {{token}}
 
-### 4o. Try to decline a non-existing friendship (expects 404)
+### 23. Decline a non-existing friendship (expects 404)
 POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/decline
 Authorization: Bearer {{tokenC}}
 
+### ─────────────────────────────────────────
+### CANCEL — separate flow with user D
+### ─────────────────────────────────────────
 
+### 24. A sends a friend request to D (expects 201, captures friendshipIdAD)
+POST {{host}}/api/friendships
+Content-Type: application/json
+Authorization: Bearer {{token}}
 
+{ "phoneNumber": "{{phoneD}}" }
 
+> {% client.global.set("friendshipIdAD", response.body.id); %}
 
+### 25. A cancels (expects 200, status CANCELLED)
+POST {{host}}/api/friendships/{{friendshipIdAD}}/cancel
+Authorization: Bearer {{token}}
 
+### 26. Cancel again (expects 409 - already processed)
+POST {{host}}/api/friendships/{{friendshipIdAD}}/cancel
+Authorization: Bearer {{token}}
 
-### 4v. Try to cancel a non-existing friendship (expects 404)
+### 27. D (the receiver) tries to cancel (expects 404 - not requester)
+POST {{host}}/api/friendships/{{friendshipIdAD}}/cancel
+Authorization: Bearer {{tokenD}}
+
+### 28. Cancel a non-existing friendship (expects 404)
 POST {{host}}/api/friendships/00000000-0000-0000-0000-000000000000/cancel
 Authorization: Bearer {{token}}
-
-### 5. Same request again (expects 409 - already pending)
-POST {{host}}/api/friendships
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-  "phoneNumber": "{{phoneB}}"
-}
-
-### 6. Send friend request to self (expects 409)
-POST {{host}}/api/friendships
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-  "phoneNumber": "{{phoneA}}"
-}
-
-### 7. Send to non-existing phone (expects 404)
-POST {{host}}/api/friendships
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-  "phoneNumber": "+33699999999"
-}
-
-### 8. Without token (expects 401)
-POST {{host}}/api/friendships
-Content-Type: application/json
-
-{
-  "phoneNumber": "{{phoneB}}"
-}
-
-
-### 4p. Register user D (for the cancel test)
-POST {{host}}/users/register
-Content-Type: application/json
-
-{
-  "username": "dan",
-  "password": "test123",
-  "phoneNumber": "{{phoneD}}",
-  "email": "dan@test.com"
-}
-
-### 3. Login as user A (stores token in {{token}})
-POST {{host}}/users/login
-Content-Type: application/json
-
-{
-  "phoneNumber": "{{phoneA}}",
-  "password": "test123"
-}
-
-> {%
-    client.global.set("token", response.body);
-%}
-
-### 4r. A sends a friend request to D (expects 201, capture id in {{friendshipIdD}})
-POST {{host}}/api/friendships
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-  "phoneNumber": "{{phoneD}}"
-}
-
-> {%
-    if (response.body && response.body.id) {
-        client.global.set("friendshipIdD", response.body.id);
-    }
-%}
-
-
-### 4t. Cancel the friend request as user A (expects 200, status CANCELLED)
-POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
-Authorization: Bearer {{token}}
-
-### 4u. Cancel again (expects 409 - already processed)
-POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
-Authorization: Bearer {{token}}
-
-
-
-### 4q. Login as user D (stores tokenD)
-POST {{host}}/users/login
-Content-Type: application/json
-
-{
-  "phoneNumber": "{{phoneD}}",
-  "password": "test123"
-}
-
-> {%
-    client.global.set("tokenD", response.body);
-%}
-
-
-### 4s. Try to cancel as user D (the receiver, not the requester) (expects 404)
-POST {{host}}/api/friendships/{{friendshipIdD}}/cancel
-Authorization: Bearer {{tokenD}}

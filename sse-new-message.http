@@ -13,7 +13,7 @@ Content-Type: application/json
 
 {
   "username": "Alice",
-  "password": "alice123",
+  "password": "test123",
   "phoneNumber": "{{phoneAlice}}",
   "email": "alice@test.com"
 }
@@ -24,7 +24,7 @@ Content-Type: application/json
 
 {
   "username": "Bob",
-  "password": "bob123",
+  "password": "test123",
   "phoneNumber": "{{phoneBob}}",
   "email": "bob@test.com"
 }
@@ -39,7 +39,7 @@ Content-Type: application/json
 
 {
   "phoneNumber": "{{phoneAlice}}",
-  "password": "alice123"
+  "password": "test123"
 }
 
 > {%
@@ -52,7 +52,7 @@ Content-Type: application/json
 
 {
   "phoneNumber": "{{phoneBob}}",
-  "password": "bob123"
+  "password": "test123"
 }
 
 > {%
@@ -63,7 +63,7 @@ Content-Type: application/json
 ### SETUP — Devenir amis (requis pour envoyer des messages)
 ### ─────────────────────────────────────────
 
-### 5. Bob envoie une demande d'ami à Alice (expects 201)
+### 5. Bob sends a friend request to Alice (captures friendshipId)
 POST {{host}}/api/friendships
 Content-Type: application/json
 Authorization: Bearer {{tokenBob}}
@@ -72,21 +72,13 @@ Authorization: Bearer {{tokenBob}}
   "phoneNumber": "{{phoneAlice}}"
 }
 
-### 6. Alice récupère ses demandes reçues (capture friendshipId)
-GET {{host}}/api/friendships/received
-Authorization: Bearer {{tokenAlice}}
+> {% client.global.set("friendshipId", response.body.id); %}
 
-> {%
-    if (response.body && response.body.length > 0) {
-        client.global.set("friendshipId", response.body[0].id);
-    }
-%}
-
-### 7. Alice accepte la demande de Bob (expects 200, conv DIRECT auto-créée)
+### 6. Alice accepts (DIRECT conv auto-created)
 POST {{host}}/api/friendships/{{friendshipId}}/accept
 Authorization: Bearer {{tokenAlice}}
 
-### 8. Bob récupère le conversationId
+### 7. Bob grabs the conversationId
 GET {{host}}/api/conversations
 Authorization: Bearer {{tokenBob}}
 
@@ -97,13 +89,13 @@ Authorization: Bearer {{tokenBob}}
 ### ─────────────────────────────────────────
 ### SCÉNARIO A — Alice connectée → event SSE reçu
 ###
-### ⚠ AVANT d'exécuter la requête 9, ouvrir un terminal et lancer :
+### ⚠ AVANT d'exécuter la requête 8, ouvrir un terminal et lancer :
 ###   curl -N -H "Authorization: Bearer <tokenAlice>" http://localhost:8080/sse/subscribe
 ###   curl.exe -N -H "Authorization: Bearer <tokenAlice>" http://localhost:8080/sse/subscribe
 ###   → Laisser le terminal ouvert, les events s'affichent en temps réel
 ### ─────────────────────────────────────────
 
-### 9. Bob envoie un message à Alice (expects 201)
+### 8. Bob envoie un message à Alice (expects 201)
 ### → Résultat attendu : event NEW_MESSAGE dans le terminal curl d'Alice
 POST {{host}}/api/messages
 Authorization: Bearer {{tokenBob}}
@@ -119,7 +111,7 @@ Content-Disposition: form-data; name="content"
 Salut Alice, ça va ?
 --WebAppBoundary--
 
-### 10. Alice répond à Bob (expects 201 — même conversationId)
+### 9. Alice répond à Bob (expects 201 — même conversationId)
 POST {{host}}/api/messages
 Authorization: Bearer {{tokenAlice}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
@@ -134,18 +126,18 @@ Content-Disposition: form-data; name="content"
 Salut Bob, ça va bien merci !
 --WebAppBoundary--
 
-### 11. Alice lit les messages de la conversation (expects 200 avec 2 messages)
+### 10. Alice lit les messages de la conversation (expects 200 avec 2 messages)
 GET {{host}}/api/messages/conversation/{{conversationId}}
 Authorization: Bearer {{tokenAlice}}
 
 ### ─────────────────────────────────────────
 ### SCÉNARIO B — Alice hors ligne → aucune notification (message sauvegardé en BDD)
 ###
-### Fermer le terminal curl d'Alice avant d'exécuter la requête 12
+### Fermer le terminal curl d'Alice avant d'exécuter la requête 11
 ### → Résultat attendu : 201 OK, message sauvegardé, mais aucun event SSE envoyé
 ### ─────────────────────────────────────────
 
-### 12. Bob envoie un message à Alice hors ligne (expects 201)
+### 11. Bob envoie un message à Alice hors ligne (expects 201)
 POST {{host}}/api/messages
 Authorization: Bearer {{tokenBob}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary

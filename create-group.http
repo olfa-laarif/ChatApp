@@ -94,7 +94,7 @@ Content-Type: application/json
 ### Friendship setup: Alice <-> Bob, Alice <-> Charlie (NOT Bob <-> Charlie)
 ### ─────────────────────────────────────────
 
-### 4d. Alice sends friend request to Bob
+### 4d. Alice sends friend request to Bob (captures friendshipIdAB)
 POST {{host}}/api/friendships
 Content-Type: application/json
 Authorization: Bearer {{tokenA}}
@@ -103,20 +103,14 @@ Authorization: Bearer {{tokenA}}
   "phoneNumber": "{{phoneB}}"
 }
 
-### 4e. Bob fetches received requests
-GET {{host}}/api/friendships/received
-Authorization: Bearer {{tokenB}}
+> {% client.global.set("friendshipIdAB", response.body.id); %}
 
-> {%
-    client.global.set("friendshipIdAB", response.body[0].id);
-%}
-
-### 4f. Bob accepts
+### 4e. Bob accepts
 POST {{host}}/api/friendships/{{friendshipIdAB}}/accept
 Authorization: Bearer {{tokenB}}
 
 
-### 4g. Alice sends friend request to Charlie
+### 4f. Alice sends friend request to Charlie (captures friendshipIdAC)
 POST {{host}}/api/friendships
 Content-Type: application/json
 Authorization: Bearer {{tokenA}}
@@ -125,15 +119,11 @@ Authorization: Bearer {{tokenA}}
   "phoneNumber": "{{phoneC}}"
 }
 
-### 4h. Charlie fetches received requests
-GET {{host}}/api/friendships/received
-Authorization: Bearer {{tokenC}}
+> {% client.global.set("friendshipIdAC", response.body.id); %}
 
-> {%
-    client.global.set("friendshipIdAC", response.body[0].id);
-%}
 
-### 4i. Charlie accepts
+
+### 4g. Charlie accepts
 POST {{host}}/api/friendships/{{friendshipIdAC}}/accept
 Authorization: Bearer {{tokenC}}
 
