@@ -25,20 +25,20 @@ public class MessageController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MessageResponse> sendMessage(
             Authentication authentication,
-            @RequestParam("receiverPhoneNumber") String receiverPhoneNumber,
+            @RequestParam("conversationId") String conversationId,
             @RequestParam(value = "content", required = false) String content,
             @RequestParam(value = "file", required = false) MultipartFile file) {
 
         String senderPhoneNumber = authentication.getName();
 
-        if (receiverPhoneNumber == null || receiverPhoneNumber.isBlank()) {
+        if (conversationId == null || conversationId.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
         if ((content == null || content.isBlank()) && (file == null || file.isEmpty())) {
             return ResponseEntity.badRequest().build();
         }
 
-        MessageResponse response = messageService.sendMessage(senderPhoneNumber, receiverPhoneNumber, content, file);
+        MessageResponse response = messageService.sendMessage(senderPhoneNumber, conversationId, content, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
