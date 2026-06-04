@@ -91,19 +91,24 @@ Content-Type: application/json
 
 
 ### ─────────────────────────────────────────
-### Notes pour la story suivante (admin-logs-endpoint)
+### Admin route protection (hasRole("ADMIN") on /api/v1/admin/**)
 ### ─────────────────────────────────────────
-###
-### Une fois les endpoints /api/admin/** créés et protégés par hasRole(ADMIN) :
-###
-### # Admin → 200 OK
-### GET {{host}}/api/admin/logs/messages
-### Authorization: Bearer {{tokenAdmin}}
-###
-### # Utilisateur normal → 403 Forbidden
-### GET {{host}}/api/admin/logs/messages
-### Authorization: Bearer {{tokenUser}}
-###
-### # Sans token → 401 Unauthorized
-### GET {{host}}/api/admin/logs/messages
-### ─────────────────────────────────────────
+
+### 7. Admin → 200 OK
+GET {{host}}/api/v1/admin/logs/messages
+Authorization: Bearer {{tokenAdmin}}
+
+### 8. Normal user → 403 Forbidden
+GET {{host}}/api/v1/admin/logs/messages
+Authorization: Bearer {{tokenUser}}
+
+### 9. No token → 401 Unauthorized
+GET {{host}}/api/v1/admin/logs/messages
+
+### 10. Admin → 200 OK (file logs)
+GET {{host}}/api/v1/admin/logs/files
+Authorization: Bearer {{tokenAdmin}}
+
+### 11. Normal user → 403 Forbidden (file logs)
+GET {{host}}/api/v1/admin/logs/files
+Authorization: Bearer {{tokenUser}}

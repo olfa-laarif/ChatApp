@@ -1,4 +1,4 @@
-package olfa.laarif.chatapp.service;
+package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.dto.notification.FriendRequestAcceptedNotification;
 import olfa.laarif.chatapp.dto.notification.FriendRequestNotification;
@@ -9,6 +9,8 @@ import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.dto.notification.SseEvent;
 import olfa.laarif.chatapp.entity.UserEntity;
 import olfa.laarif.chatapp.repository.UserRepository;
+import olfa.laarif.chatapp.service.EmailService;
+import olfa.laarif.chatapp.service.SseService;
 import olfa.laarif.chatapp.sse.SseEmitterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;

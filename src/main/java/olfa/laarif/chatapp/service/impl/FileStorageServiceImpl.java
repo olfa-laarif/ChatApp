@@ -1,4 +1,4 @@
-package olfa.laarif.chatapp.service;
+package olfa.laarif.chatapp.service.impl;
 
 import olfa.laarif.chatapp.service.FileStorageService;
 import org.springframework.stereotype.Service;
