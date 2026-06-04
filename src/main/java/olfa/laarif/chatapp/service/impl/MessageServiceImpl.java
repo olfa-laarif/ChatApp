@@ -85,7 +85,9 @@ public class MessageServiceImpl implements MessageService {
                 .content(content)
                 .build();
 
-        MessageEntity savedMessage = messageRepository.save(message);
+        // saveAndFlush so @CreationTimestamp on createdAt is populated before we
+        // serialize the response (plain save would only flush at commit time).
+        MessageEntity savedMessage = messageRepository.saveAndFlush(message);
 
         AttachmentEntity savedAttachment = null;
         if (file != null && !file.isEmpty()) {
@@ -238,7 +240,6 @@ public class MessageServiceImpl implements MessageService {
         }
 
         message.setDeleted(true);
-        message.setContent("Ce message a été supprimé.");
         messageRepository.save(message);
 
         attachmentRepository.findByMessage(message)

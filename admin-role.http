@@ -13,8 +13,11 @@
 ### - Migration Flyway V2 ajoute la colonne `role` aux DB existantes.
 ### ─────────────────────────────────────────
 
+### ─────────────────────────────────────────
+### SETUP — register + login both users first (so tokens are populated)
+### ─────────────────────────────────────────
 
-### 1. Register d'un utilisateur normal (rôle USER par défaut, attend 200)
+### 1. Register a normal user (role USER by default, expects 200)
 POST {{host}}/users/register
 Content-Type: application/json
 
@@ -25,8 +28,7 @@ Content-Type: application/json
   "email": "normal@test.com"
 }
 
-
-### 2. Bootstrap : création du premier admin (attend 201)
+### 2. Bootstrap admin (expects 201 on first run, 400 afterwards because the phone is now in use — see #5 for the 409 case)
 POST {{host}}/users/register/admin
 Content-Type: application/json
 
@@ -37,32 +39,7 @@ Content-Type: application/json
   "email": "admin@chatapp.com"
 }
 
-
-### 3. Tentative de créer un 2e admin (attend 409 - un admin existe déjà)
-POST {{host}}/users/register/admin
-Content-Type: application/json
-
-{
-  "username": "SecondAdmin",
-  "password": "admin123",
-  "phoneNumber": "+33699999999",
-  "email": "admin2@chatapp.com"
-}
-
-
-### 4. Tentative de créer un admin avec un numéro déjà utilisé (attend 400)
-POST {{host}}/users/register/admin
-Content-Type: application/json
-
-{
-  "username": "DuplicateAdmin",
-  "password": "admin123",
-  "phoneNumber": "{{phoneNormal}}",
-  "email": "dup@chatapp.com"
-}
-
-
-### 5. Login admin (attend 200 + token)
+### 3. Login admin → captures tokenAdmin
 POST {{host}}/users/login
 Content-Type: application/json
 
@@ -75,8 +52,7 @@ Content-Type: application/json
     client.global.set("tokenAdmin", response.body.trim().replace(/^"|"$/g, ""));
 %}
 
-
-### 6. Login utilisateur normal (attend 200 + token)
+### 4. Login normal user → captures tokenUser
 POST {{host}}/users/login
 Content-Type: application/json
 
@@ -89,12 +65,37 @@ Content-Type: application/json
     client.global.set("tokenUser", response.body.trim().replace(/^"|"$/g, ""));
 %}
 
+### ─────────────────────────────────────────
+### BOOTSTRAP ADMIN — error cases
+### ─────────────────────────────────────────
+
+### 5. Try to create a second admin (expects 409 - an admin already exists)
+POST {{host}}/users/register/admin
+Content-Type: application/json
+
+{
+  "username": "SecondAdmin",
+  "password": "admin123",
+  "phoneNumber": "+33699999999",
+  "email": "admin2@chatapp.com"
+}
+
+### 6. Try to create an admin with an already-used phone (expects 400)
+POST {{host}}/users/register/admin
+Content-Type: application/json
+
+{
+  "username": "DuplicateAdmin",
+  "password": "admin123",
+  "phoneNumber": "{{phoneNormal}}",
+  "email": "dup@chatapp.com"
+}
 
 ### ─────────────────────────────────────────
 ### Admin route protection (hasRole("ADMIN") on /api/v1/admin/**)
 ### ─────────────────────────────────────────
 
-### 7. Admin → 200 OK
+### 7. Admin → 200 OK (message logs)
 GET {{host}}/api/v1/admin/logs/messages
 Authorization: Bearer {{tokenAdmin}}
 

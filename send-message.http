@@ -12,10 +12,10 @@ POST {{host}}/users/register
 Content-Type: application/json
 
 {
-  "username": "Lucas",
+  "username": "Alice",
   "password": "test123",
   "phoneNumber": "{{phoneA}}",
-  "email": "lucas.msg@test.com"
+  "email": "alice.msg@test.com"
 }
 
 ### 2. Register user B
@@ -23,17 +23,17 @@ POST {{host}}/users/register
 Content-Type: application/json
 
 {
-  "username": "Camille",
+  "username": "Bob",
   "password": "test123",
   "phoneNumber": "{{phoneB}}",
-  "email": "camille.msg@test.com"
+  "email": "bob.msg@test.com"
 }
 
 ### ─────────────────────────────────────────
 ### SETUP — Login
 ### ─────────────────────────────────────────
 
-### 3. Login as Lucas
+### 3. Login as Alice
 POST {{host}}/users/login
 Content-Type: application/json
 
@@ -46,7 +46,7 @@ Content-Type: application/json
     client.global.set("token", response.body.trim().replace(/^"|"$/g, ""));
 %}
 
-### 4. Login as Camille
+### 4. Login as Bob
 POST {{host}}/users/login
 Content-Type: application/json
 
@@ -63,7 +63,7 @@ Content-Type: application/json
 ### SETUP — Friendship (la conv DIRECT est créée à l'acceptation)
 ### ─────────────────────────────────────────
 
-### 5. Lucas envoie une demande d'ami à Camille
+### 5. Alice sends a friend request to Bob (captures friendshipId)
 POST {{host}}/api/friendships
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -72,19 +72,13 @@ Authorization: Bearer {{token}}
   "phoneNumber": "{{phoneB}}"
 }
 
-### 6. Camille récupère ses demandes reçues (capture friendshipId)
-GET {{host}}/api/friendships/received
-Authorization: Bearer {{tokenB}}
+> {% client.global.set("friendshipId", response.body.id); %}
 
-> {%
-    client.global.set("friendshipId", response.body[0].id);
-%}
-
-### 7. Camille accepte la demande (crée la conv DIRECT automatiquement)
+### 6. Bob accepts the request (DIRECT conv auto-created)
 POST {{host}}/api/friendships/{{friendshipId}}/accept
 Authorization: Bearer {{tokenB}}
 
-### 8. Lucas récupère ses conversations pour attraper le conversationId
+### 7. Alice reads her conversations to grab the conversationId
 GET {{host}}/api/conversations
 Authorization: Bearer {{token}}
 
@@ -97,7 +91,7 @@ Authorization: Bearer {{token}}
 ### ENVOI DE MESSAGES
 ### ─────────────────────────────────────────
 
-### 9. Lucas envoie un message à Camille (expects 201)
+### 9. Alice envoie un message à Bob (expects 201)
 POST {{host}}/api/messages
 Authorization: Bearer {{token}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
@@ -109,10 +103,10 @@ Content-Disposition: form-data; name="conversationId"
 --WebAppBoundary
 Content-Disposition: form-data; name="content"
 
-Salut Camille !
+Salut Bob !
 --WebAppBoundary--
 
-### 10. Camille répond à Lucas (expects 201 — même conversationId)
+### 10. Bob répond à Alice (expects 201 — même conversationId)
 POST {{host}}/api/messages
 Authorization: Bearer {{tokenB}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
@@ -124,10 +118,10 @@ Content-Disposition: form-data; name="conversationId"
 --WebAppBoundary
 Content-Disposition: form-data; name="content"
 
-Salut Lucas, ça va ?
+Salut Alice, ça va ?
 --WebAppBoundary--
 
-### 11. Lucas lit les messages de la conversation (expects 200 avec 2 messages)
+### 11. Alice lit les messages de la conversation (expects 200 avec 2 messages)
 GET {{host}}/api/messages/conversation/{{conversationId}}
 Authorization: Bearer {{token}}
 
@@ -217,7 +211,7 @@ Content-Disposition: form-data; name="content"
 Pas de token
 --WebAppBoundary--
 
-### 18. Lucas envoie un message avec Texte ET Image (expects 201)
+### 18. Alice envoie un message avec Texte ET Image (expects 201)
 POST {{host}}/api/messages
 Authorization: Bearer {{token}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
@@ -237,7 +231,7 @@ Content-Type: image/png
 < ./photo.png
 --WebAppBoundary--
 
-### 19. Camille envoie un document PDF SEUL sans texte (expects 201) — nécessite document.pdf à la racine
+### 19. Bob envoie un document PDF SEUL sans texte (expects 201) — nécessite document.pdf à la racine
 POST {{host}}/api/messages
 Authorization: Bearer {{tokenB}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
@@ -258,7 +252,7 @@ Content-Type: application/pdf
     client.global.set("messageWithAttachmentId", response.body.id);
 %}
 
-### 20. Lucas tente d'envoyer un format interdit (expects 400) — nécessite notes.txt à la racine
+### 20. Alice tente d'envoyer un format interdit (expects 400) — nécessite notes.txt à la racine
 POST {{host}}/api/messages
 Authorization: Bearer {{token}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
@@ -274,7 +268,7 @@ Content-Type: text/plain
 < ./notes.txt
 --WebAppBoundary--
 
-### 21. Lucas envoie un message MULTIPART vide (ni texte ni fichier - expects 400)
+### 21. Alice envoie un message MULTIPART vide (ni texte ni fichier - expects 400)
 POST {{host}}/api/messages
 Authorization: Bearer {{token}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
@@ -289,28 +283,28 @@ Content-Disposition: form-data; name="conversationId"
 ### CHATAPP-13 : MODIFICATION DE MESSAGE
 ### ─────────────────────────────────────────
 
-### 22. Lucas récupère d'abord l'historique pour attraper un ID de message
+### 22. Alice récupère d'abord l'historique pour attraper un ID de message
 GET {{host}}/api/messages/conversation/{{conversationId}}
 Authorization: Bearer {{token}}
 
 > {%
     if (response.body && response.body.length > 0) {
         client.global.set("messageIdToEdit", response.body[0].id);
-        client.global.set("camilleMessageId", response.body[1].id);
+        client.global.set("bobMessageId", response.body[1].id);
     }
 %}
 
-### 23. Lucas modifie son propre message (expects 200)
+### 23. Alice modifie son propre message (expects 200)
 PUT {{host}}/api/messages/{{messageIdToEdit}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "content": "Salut Camille ! (Modifié pour corriger une faute)"
+  "content": "Salut Bob ! (Modifié pour corriger une faute)"
 }
 
-### 24. Lucas tente de modifier le message de Camille (expects 400)
-PUT {{host}}/api/messages/{{camilleMessageId}}
+### 24. Alice tente de modifier le message de Bob (expects 400)
+PUT {{host}}/api/messages/{{bobMessageId}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -318,7 +312,7 @@ Content-Type: application/json
   "content": "Je pirate ton message !"
 }
 
-### 25. Lucas tente de mettre un contenu vide (expects 400)
+### 25. Alice tente de mettre un contenu vide (expects 400)
 PUT {{host}}/api/messages/{{messageIdToEdit}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -331,18 +325,18 @@ Content-Type: application/json
 ### CHATAPP-13 : SUPPRESSION
 ### ─────────────────────────────────────────
 
-### 26. Lucas supprime son propre message (expects 200)
+### 26. Alice supprime son propre message (expects 200)
 DELETE {{host}}/api/messages/{{messageIdToEdit}}
 Authorization: Bearer {{token}}
 
-### 27. Camille tente de supprimer le message de Lucas (sécurité - expects 400)
+### 27. Bob tente de supprimer le message de Alice (sécurité - expects 400)
 DELETE {{host}}/api/messages/{{messageIdToEdit}}
 Authorization: Bearer {{tokenB}}
 
-### 28. Camille retire l'attachment de son message PDF mais garde le texte (expects 200)
+### 28. Bob retire l'attachment de son message PDF mais garde le texte (expects 200)
 DELETE {{host}}/api/messages/{{messageWithAttachmentId}}/attachment
 Authorization: Bearer {{tokenB}}
 
-### 29. Lucas tente de supprimer l'attachment de Camille (sécurité - expects 400)
+### 29. Alice tente de supprimer l'attachment de Bob (sécurité - expects 400)
 DELETE {{host}}/api/messages/{{messageWithAttachmentId}}/attachment
 Authorization: Bearer {{token}}

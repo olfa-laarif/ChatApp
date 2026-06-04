@@ -143,8 +143,9 @@ public class ConversationServiceImpl implements ConversationService {
         }
 
         // Last message preview. Null if the conversation has no messages yet
-        // (typically a newly-created group).
-        String lastMessage = conv.getMessages().isEmpty()
+        // (typically a newly-created group, where Hibernate hasn't materialized
+        // the empty collection yet).
+        String lastMessage = (conv.getMessages() == null || conv.getMessages().isEmpty())
                 ? null
                 : conv.getMessages().get(0).getContent();
 
