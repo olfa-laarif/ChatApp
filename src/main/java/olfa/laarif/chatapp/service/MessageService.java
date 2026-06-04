@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface MessageService {
 
-    MessageResponse sendMessage(String senderPhoneNumber, String receiverPhoneNumber, String content, MultipartFile file);
+    MessageResponse sendMessage(String senderPhoneNumber, String conversationId, String content, MultipartFile file);
 
     List<MessageResponse> getConversationMessages(String userPhoneNumber, String conversationId);
 

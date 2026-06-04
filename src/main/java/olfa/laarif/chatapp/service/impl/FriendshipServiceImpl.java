@@ -5,12 +5,16 @@ import olfa.laarif.chatapp.dto.FriendshipResponse;
 import olfa.laarif.chatapp.dto.UserResponse;
 import olfa.laarif.chatapp.dto.notification.FriendRequestAcceptedNotification;
 import olfa.laarif.chatapp.dto.notification.FriendRequestNotification;
+import olfa.laarif.chatapp.entity.ConversationEntity;
+import olfa.laarif.chatapp.entity.ConversationMemberEntity;
 import olfa.laarif.chatapp.entity.FriendshipEntity;
 import olfa.laarif.chatapp.entity.UserEntity;
+import olfa.laarif.chatapp.enums.ConversationType;
 import olfa.laarif.chatapp.enums.FriendshipStatus;
 import olfa.laarif.chatapp.exception.FriendshipAlreadyExistsException;
 import olfa.laarif.chatapp.exception.FriendshipNotFoundException;
 import olfa.laarif.chatapp.exception.UserNotFoundException;
+import olfa.laarif.chatapp.repository.ConversationRepository;
 import olfa.laarif.chatapp.repository.FriendshipRepository;
 import olfa.laarif.chatapp.repository.UserRepository;
 import olfa.laarif.chatapp.service.FriendshipService;
@@ -18,6 +22,8 @@ import olfa.laarif.chatapp.service.SseService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -25,13 +31,16 @@ public class FriendshipServiceImpl implements FriendshipService {
 
     private final UserRepository userRepository;
     private final FriendshipRepository friendshipRepository;
+    private final ConversationRepository conversationRepository;
     private final SseService sseService;
 
     public FriendshipServiceImpl(UserRepository userRepository,
                                  FriendshipRepository friendshipRepository,
+                                 ConversationRepository conversationRepository,
                                  SseService sseService) {
         this.userRepository = userRepository;
         this.friendshipRepository = friendshipRepository;
+        this.conversationRepository = conversationRepository;
         this.sseService = sseService;
     }
 
@@ -140,6 +149,8 @@ public class FriendshipServiceImpl implements FriendshipService {
         FriendshipEntity saved = friendshipRepository.saveAndFlush(friendship);
 
         if (newStatus == FriendshipStatus.ACCEPTED) {
+            ensureDirectConversation(saved.getRequester(), receiver);
+
             sseService.notifyFriendRequestAccepted(
                     saved.getRequester().getId(),
                     FriendRequestAcceptedNotification.builder()
@@ -152,6 +163,32 @@ public class FriendshipServiceImpl implements FriendshipService {
         }
 
         return toResponse(saved);
+    }
+
+    // Idempotent: reuses an existing DIRECT conversation between the two users if any,
+    // otherwise creates one. Called on friendship acceptance so the first message
+    // doesn't have to bootstrap the conversation.
+    private void ensureDirectConversation(UserEntity userA, UserEntity userB) {
+        if (conversationRepository
+                .findDirectConversationBetweenUsers(userA, userB, ConversationType.DIRECT)
+                .isPresent()) {
+            return;
+        }
+
+        Instant now = Instant.now();
+        ConversationEntity conv = ConversationEntity.builder()
+                .conversationType(ConversationType.DIRECT)
+                .createdAt(now)
+                .lastMessageAt(now)
+                .members(new ArrayList<>())
+                .build();
+
+        conv.getMembers().add(ConversationMemberEntity.builder()
+                .conversation(conv).user(userA).joinedAt(now).build());
+        conv.getMembers().add(ConversationMemberEntity.builder()
+                .conversation(conv).user(userB).joinedAt(now).build());
+
+        conversationRepository.save(conv);
     }
 
     @Override

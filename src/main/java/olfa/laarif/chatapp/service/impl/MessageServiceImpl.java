@@ -13,111 +13,71 @@ import olfa.laarif.chatapp.repository.*;
 import olfa.laarif.chatapp.service.FileStorageService;
 import olfa.laarif.chatapp.service.MessageService;
 import olfa.laarif.chatapp.service.SseService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
-import static java.time.Instant.now;
 
 @Service
 public class MessageServiceImpl implements MessageService {
 
     private final UserRepository userRepository;
-    private final FriendshipRepository friendshipRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final AttachmentRepository attachmentRepository;
     private final MessageEditHistoryRepository messageEditHistoryRepository;
     private final FileStorageService fileStorageService;
     private final SseService sseService;
-
-
     private final ApplicationEventPublisher eventPublisher;
 
     public MessageServiceImpl(UserRepository userRepository,
-                              FriendshipRepository friendshipRepository,
                               ConversationRepository conversationRepository,
                               MessageRepository messageRepository,
                               AttachmentRepository attachmentRepository,
                               MessageEditHistoryRepository messageEditHistoryRepository,
                               FileStorageService fileStorageService,
                               SseService sseService,
-                              ApplicationEventPublisher eventPublisher) { // Le paramètre sseService est maintenant bien placé ici
+                              ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
-        this.friendshipRepository = friendshipRepository;
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.attachmentRepository = attachmentRepository;
         this.messageEditHistoryRepository = messageEditHistoryRepository;
         this.fileStorageService = fileStorageService;
         this.sseService = sseService;
-        this.eventPublisher=eventPublisher;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
     @Transactional
-    public MessageResponse sendMessage(String senderPhoneNumber, String receiverPhoneNumber, String content, MultipartFile file) {
+    public MessageResponse sendMessage(String senderPhoneNumber, String conversationId, String content, MultipartFile file) {
 
-        // 1. Validations de base (Utilisateurs & Amitié)
+        if (content != null && content.length() > 500) {
+            throw new IllegalArgumentException("Message exceeds maximum limit of 500 characters");
+        }
+
         UserEntity sender = userRepository.findByPhoneNumber(senderPhoneNumber)
                 .orElseThrow(() -> new UserNotFoundException("Authenticated user not found: " + senderPhoneNumber));
 
-        UserEntity receiver = userRepository.findByPhoneNumber(receiverPhoneNumber)
-                .orElseThrow(() -> new UserNotFoundException("No user found with phone number: " + receiverPhoneNumber));
+        ConversationEntity conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ConversationNotFoundException("Conversation not found: " + conversationId));
 
-        boolean areFriends = friendshipRepository.existsAcceptedFriendshipBetween(
-                sender, receiver, FriendshipStatus.ACCEPTED);
-
-        if (!areFriends) {
-            throw new FriendshipNotFoundException("You can only send messages to your friends");
+        // Membership is the single gatekeeper: DIRECT conversations are auto-created on
+        // friendship acceptance, GROUP conversations enforce friendship at creation time.
+        boolean isMember = conversation.getMembers().stream()
+                .anyMatch(m -> m.getUser().getId().equals(sender.getId()));
+        if (!isMember) {
+            throw new ConversationNotFoundException("Conversation not found: " + conversationId);
         }
 
-        // 2. Récupération ou création de la conversation
         Instant now = Instant.now();
-        ConversationEntity conversation = conversationRepository
-                .findDirectConversationBetweenUsers(sender, receiver,ConversationType.DIRECT)
-                .orElseGet(() -> {
-                    // Initialize the base conversation
-                    ConversationEntity newConv = ConversationEntity.builder()
-                            .conversationType(ConversationType.DIRECT)
-
-                            .createdAt(now())
-                            .lastMessageAt(now())
-                            .members(new ArrayList<>())
-                            .build();
-
-                    // Create and attach both members
-                    ConversationMemberEntity memberSender = ConversationMemberEntity.builder()
-                            .conversation(newConv)
-                            .user(sender)
-
-                            .joinedAt(now())
-                            .build();
-
-                    // Note: Change ConversationMemberEntity to whatever your exact class name is
-                    ConversationMemberEntity memberReceiver = ConversationMemberEntity.builder()
-                            .conversation(newConv)
-                            .user(receiver)
-                            //  .role(MemberRole.MEMBER)
-                            .joinedAt(now())
-                            .build();
-
-                    newConv.getMembers().add(memberSender);
-                    newConv.getMembers().add(memberReceiver);
-
-                    return conversationRepository.save(newConv);
-                });
-
         conversation.setLastMessageAt(now);
         conversationRepository.save(conversation);
 
-        // 3. Création et sauvegarde du Message
         MessageEntity message = MessageEntity.builder()
                 .conversation(conversation)
                 .sender(sender)
@@ -126,17 +86,14 @@ public class MessageServiceImpl implements MessageService {
 
         MessageEntity savedMessage = messageRepository.save(message);
 
-        // 4. Traitement de la pièce jointe si elle existe
         AttachmentEntity savedAttachment = null;
         if (file != null && !file.isEmpty()) {
 
-            // Validation de la taille : 20 Mo max
             long maxBytes = 20971520;
             if (file.getSize() > maxBytes) {
                 throw new IllegalArgumentException("File size exceeds maximum limit of 20 MB");
             }
 
-            // Détermination du type d'attachment
             String mimeType = file.getContentType();
             AttachmentType attachmentType;
             if (mimeType != null && mimeType.startsWith("image/")) {
@@ -147,10 +104,8 @@ public class MessageServiceImpl implements MessageService {
                 throw new IllegalArgumentException("Only Images and PDFs are allowed");
             }
 
-            // Sauvegarde physique du fichier
             String fileUrl = fileStorageService.store(file);
 
-            // Sauvegarde en Base de Données
             AttachmentEntity attachment = AttachmentEntity.builder()
                     .message(savedMessage)
                     .filename(file.getOriginalFilename())
@@ -163,23 +118,22 @@ public class MessageServiceImpl implements MessageService {
             savedAttachment = attachmentRepository.save(attachment);
         }
 
-        // 5. Notification en temps réel (SSE)
-        sseService.notifyNewMessage(
-                receiver.getId(),
-                NewMessageNotification.builder()
-                        .messageId(savedMessage.getId())
-                        .conversationId(conversation.getId())
-                        .senderUsername(sender.getUsername())
-                        .senderPhoneNumber(sender.getPhoneNumber())
-                        .contentPreview(savedMessage.getContent())
-                        .sentAt(savedMessage.getCreatedAt())
-                        .build()
-        );
+        // Fan-out SSE to every other member of the conversation.
+        NewMessageNotification notification = NewMessageNotification.builder()
+                .messageId(savedMessage.getId())
+                .conversationId(conversation.getId())
+                .senderUsername(sender.getUsername())
+                .senderPhoneNumber(sender.getPhoneNumber())
+                .contentPreview(savedMessage.getContent())
+                .sentAt(savedMessage.getCreatedAt())
+                .build();
+        conversation.getMembers().stream()
+                .map(m -> m.getUser().getId())
+                .filter(id -> !id.equals(sender.getId()))
+                .forEach(recipientId -> sseService.notifyNewMessage(recipientId, notification));
 
-         // THEN - On vérifie qu'un log d'action SENT a été créé
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.SENT));
 
-        // 6. Retour de la réponse complète
         return toResponse(savedMessage, savedAttachment);
     }
 
@@ -249,21 +203,16 @@ public class MessageServiceImpl implements MessageService {
         AttachmentEntity attachment = attachmentRepository.findByMessage(updatedMessage).orElse(null);
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.EDITED));
 
-        String recipientId = updatedMessage.getConversation().getMembers().stream()
-                .filter(m -> !m.getUser().getId().equals(user.getId()))
+        MessageEditedNotification notification = MessageEditedNotification.builder()
+                .messageId(updatedMessage.getId())
+                .conversationId(updatedMessage.getConversation().getId())
+                .newContent(updatedMessage.getContent())
+                .editedAt(Instant.now())
+                .build();
+        updatedMessage.getConversation().getMembers().stream()
                 .map(m -> m.getUser().getId())
-                .findFirst()
-                .orElseThrow();
-
-        sseService.notifyMessageEdited(
-                recipientId,
-                MessageEditedNotification.builder()
-                        .messageId(updatedMessage.getId())
-                        .conversationId(updatedMessage.getConversation().getId())
-                        .newContent(updatedMessage.getContent())
-                        .editedAt(Instant.now())
-                        .build()
-        );
+                .filter(id -> !id.equals(user.getId()))
+                .forEach(recipientId -> sseService.notifyMessageEdited(recipientId, notification));
 
         return toResponse(updatedMessage, attachment);
     }
@@ -291,21 +240,15 @@ public class MessageServiceImpl implements MessageService {
         });
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
 
-        String recipientId = message.getConversation().getMembers().stream()
-                .filter(m -> !m.getUser().getId().equals(user.getId()))
+        MessageDeletedNotification notification = MessageDeletedNotification.builder()
+                .messageId(message.getId())
+                .conversationId(message.getConversation().getId())
+                .deletedAt(Instant.now())
+                .build();
+        message.getConversation().getMembers().stream()
                 .map(m -> m.getUser().getId())
-                .findFirst()
-                .orElseThrow();
-
-        sseService.notifyMessageDeleted(
-                recipientId,
-                MessageDeletedNotification.builder()
-                        .messageId(message.getId())
-                        .conversationId(message.getConversation().getId())
-                        .deletedAt(Instant.now())
-                        .build()
-        );
-
+                .filter(id -> !id.equals(user.getId()))
+                .forEach(recipientId -> sseService.notifyMessageDeleted(recipientId, notification));
     }
 
     @Override
@@ -330,21 +273,16 @@ public class MessageServiceImpl implements MessageService {
         attachmentRepository.delete(attachment);
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
 
-        String recipientId = message.getConversation().getMembers().stream()
-                .filter(m -> !m.getUser().getId().equals(user.getId()))
+        FileDeletedNotification notification = FileDeletedNotification.builder()
+                .attachmentId(attachmentId)
+                .messageId(message.getId())
+                .conversationId(message.getConversation().getId())
+                .deletedAt(Instant.now())
+                .build();
+        message.getConversation().getMembers().stream()
                 .map(m -> m.getUser().getId())
-                .findFirst()
-                .orElseThrow();
-
-        sseService.notifyFileDeleted(
-                recipientId,
-                FileDeletedNotification.builder()
-                        .attachmentId(attachmentId)
-                        .messageId(message.getId())
-                        .conversationId(message.getConversation().getId())
-                        .deletedAt(Instant.now())
-                        .build()
-        );
+                .filter(id -> !id.equals(user.getId()))
+                .forEach(recipientId -> sseService.notifyFileDeleted(recipientId, notification));
     }
 
     private MessageResponse toResponse(MessageEntity entity, AttachmentEntity attachmentEntity) {
