@@ -82,60 +82,80 @@ Authorization: Bearer {{tokenAlice}}
     }
 %}
 
-### 7. Alice accepte la demande de Bob (expects 200)
+### 7. Alice accepte la demande de Bob (expects 200, conv DIRECT auto-créée)
 POST {{host}}/api/friendships/{{friendshipId}}/accept
 Authorization: Bearer {{tokenAlice}}
+
+### 8. Bob récupère le conversationId
+GET {{host}}/api/conversations
+Authorization: Bearer {{tokenBob}}
+
+> {%
+    client.global.set("conversationId", response.body[0].conversationId);
+%}
 
 ### ─────────────────────────────────────────
 ### SCÉNARIO A — Alice connectée → event SSE reçu
 ###
-### ⚠ AVANT d'exécuter la requête 8, ouvrir un terminal et lancer :
+### ⚠ AVANT d'exécuter la requête 9, ouvrir un terminal et lancer :
+###   curl -N -H "Authorization: Bearer <tokenAlice>" http://localhost:8080/sse/subscribe
 ###   curl.exe -N -H "Authorization: Bearer <tokenAlice>" http://localhost:8080/sse/subscribe
 ###   → Laisser le terminal ouvert, les events s'affichent en temps réel
 ### ─────────────────────────────────────────
 
-### 8. Bob envoie un message à Alice (expects 201)
+### 9. Bob envoie un message à Alice (expects 201)
 ### → Résultat attendu : event NEW_MESSAGE dans le terminal curl d'Alice
 POST {{host}}/api/messages
-Content-Type: application/json
 Authorization: Bearer {{tokenBob}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
 
-{
-  "receiverPhoneNumber": "{{phoneAlice}}",
-  "content": "Salut Alice, ça va ?"
-}
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
 
-> {%
-    client.global.set("conversationId", response.body.conversationId);
-%}
+{{conversationId}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
 
-### 9. Alice répond à Bob (expects 201 — même conversationId)
+Salut Alice, ça va ?
+--WebAppBoundary--
+
+### 10. Alice répond à Bob (expects 201 — même conversationId)
 POST {{host}}/api/messages
-Content-Type: application/json
 Authorization: Bearer {{tokenAlice}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
 
-{
-  "receiverPhoneNumber": "{{phoneBob}}",
-  "content": "Salut Bob, ça va bien merci !"
-}
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
 
-### 10. Alice lit les messages de la conversation (expects 200 avec 2 messages)
+{{conversationId}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
+
+Salut Bob, ça va bien merci !
+--WebAppBoundary--
+
+### 11. Alice lit les messages de la conversation (expects 200 avec 2 messages)
 GET {{host}}/api/messages/conversation/{{conversationId}}
 Authorization: Bearer {{tokenAlice}}
 
 ### ─────────────────────────────────────────
 ### SCÉNARIO B — Alice hors ligne → aucune notification (message sauvegardé en BDD)
 ###
-### Fermer le terminal curl d'Alice avant d'exécuter la requête 11
+### Fermer le terminal curl d'Alice avant d'exécuter la requête 12
 ### → Résultat attendu : 201 OK, message sauvegardé, mais aucun event SSE envoyé
 ### ─────────────────────────────────────────
 
-### 11. Bob envoie un message à Alice hors ligne (expects 201)
+### 12. Bob envoie un message à Alice hors ligne (expects 201)
 POST {{host}}/api/messages
-Content-Type: application/json
 Authorization: Bearer {{tokenBob}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
 
-{
-  "receiverPhoneNumber": "{{phoneAlice}}",
-  "content": "Alice tu es là ?"
-}
+--WebAppBoundary
+Content-Disposition: form-data; name="conversationId"
+
+{{conversationId}}
+--WebAppBoundary
+Content-Disposition: form-data; name="content"
+
+Alice tu es là ?
+--WebAppBoundary--

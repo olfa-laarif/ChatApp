@@ -6,6 +6,7 @@ import olfa.laarif.chatapp.dto.notification.MessageDeletedNotification;
 import olfa.laarif.chatapp.dto.notification.MessageEditedNotification;
 import olfa.laarif.chatapp.dto.notification.NewMessageNotification;
 import olfa.laarif.chatapp.entity.*;
+import olfa.laarif.chatapp.entity.listener.FileActionEvent;
 import olfa.laarif.chatapp.entity.listener.MessageActionEvent;
 import olfa.laarif.chatapp.enums.*;
 import olfa.laarif.chatapp.exception.*;
@@ -116,6 +117,7 @@ public class MessageServiceImpl implements MessageService {
                     .build();
 
             savedAttachment = attachmentRepository.save(attachment);
+            eventPublisher.publishEvent(new FileActionEvent(savedAttachment, sender, FileAction.SENT));
         }
 
         // Fan-out SSE to every other member of the conversation.
@@ -159,6 +161,7 @@ public class MessageServiceImpl implements MessageService {
                 .stream()
                 .map(msg -> {
                     AttachmentEntity attachment = attachmentRepository.findByMessage(msg)
+                            .filter(att -> !att.isDeleted())
                             .orElse(null);
                     return toResponse(msg, attachment);
                 })
@@ -186,7 +189,9 @@ public class MessageServiceImpl implements MessageService {
         }
 
         if (message.getContent().equals(newContent)) {
-            AttachmentEntity attachment = attachmentRepository.findByMessage(message).orElse(null);
+            AttachmentEntity attachment = attachmentRepository.findByMessage(message)
+                    .filter(att -> !att.isDeleted())
+                    .orElse(null);
             return toResponse(message, attachment);
         }
 
@@ -200,7 +205,9 @@ public class MessageServiceImpl implements MessageService {
         message.setContent(newContent);
         MessageEntity updatedMessage = messageRepository.save(message);
 
-        AttachmentEntity attachment = attachmentRepository.findByMessage(updatedMessage).orElse(null);
+        AttachmentEntity attachment = attachmentRepository.findByMessage(updatedMessage)
+                .filter(att -> !att.isDeleted())
+                .orElse(null);
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.EDITED));
 
         MessageEditedNotification notification = MessageEditedNotification.builder()
@@ -234,10 +241,14 @@ public class MessageServiceImpl implements MessageService {
         message.setContent("Ce message a été supprimé.");
         messageRepository.save(message);
 
-        attachmentRepository.findByMessage(message).ifPresent(attachment -> {
-            fileStorageService.delete(attachment.getUrl());
-            attachmentRepository.delete(attachment);
-        });
+        attachmentRepository.findByMessage(message)
+                .filter(att -> !att.isDeleted())
+                .ifPresent(attachment -> {
+                    fileStorageService.delete(attachment.getUrl());
+                    attachment.setDeleted(true);
+                    attachmentRepository.save(attachment);
+                    eventPublisher.publishEvent(new FileActionEvent(attachment, user, FileAction.DELETED));
+                });
         eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
 
         MessageDeletedNotification notification = MessageDeletedNotification.builder()
@@ -265,13 +276,15 @@ public class MessageServiceImpl implements MessageService {
         }
 
         AttachmentEntity attachment = attachmentRepository.findByMessage(message)
+                .filter(att -> !att.isDeleted())
                 .orElseThrow(() -> new IllegalArgumentException("No attachment found for this message"));
 
         String attachmentId = attachment.getId();
 
         fileStorageService.delete(attachment.getUrl());
-        attachmentRepository.delete(attachment);
-        eventPublisher.publishEvent(new MessageActionEvent(message, MessageAction.DELETED));
+        attachment.setDeleted(true);
+        attachmentRepository.save(attachment);
+        eventPublisher.publishEvent(new FileActionEvent(attachment, user, FileAction.DELETED));
 
         FileDeletedNotification notification = FileDeletedNotification.builder()
                 .attachmentId(attachmentId)
